@@ -248,18 +248,31 @@
 - [x] Returns proper JSON structure for each message
 - [x] Handles default pagination parameters
 
-### Story 3.3: Retrieve Customer Messages
+### Story 3.3: Retrieve Customer Messages ✅ **COMPLETED**
 **As a** client application  
 **I want to** retrieve all messages for a customer  
 **So that** I can show their message history  
 
 **Acceptance Criteria:**
-- [ ] GET `/api/v1/messages/customer/{customer_uuid}` endpoint exists
-- [ ] Returns messages from all customer's channels
-- [ ] Messages ordered by creation time (newest first)
-- [ ] Only returns messages for authenticated client
-- [ ] Supports pagination parameters
-- [ ] Returns total count
+- [x] GET `/api/v1/messages/customer/{customer_uuid}` endpoint exists
+- [x] Returns messages from all customer's channels
+- [x] Messages ordered by creation time (newest first)
+- [x] Only returns messages for authenticated client
+- [x] Supports pagination parameters
+- [x] Returns total count
+
+**Test Cases:**
+- [x] Can retrieve messages for a customer
+- [x] Returns empty list when customer has no messages
+- [x] Returns 404 for non-existent customer
+- [x] Returns 404 for customer from different client
+- [x] Supports pagination parameters
+- [x] Supports cursor-based pagination with starting_after
+- [x] Requires authentication
+- [x] Requires public key header
+- [x] Validates origin domain
+- [x] Returns proper JSON structure for each message
+- [x] Handles default pagination parameters
 
 ## Epic 4: Data Models & Migrations
 

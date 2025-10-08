@@ -21,5 +21,6 @@ Route::prefix('v1')->group(function () {
         Route::get('channels/customer/{customerUuid}', [ChannelController::class, 'getCustomerChannels']);
         Route::post('messages', [MessageController::class, 'store']);
         Route::get('messages/channel/{channelUuid}', [MessageController::class, 'getChannelMessages']);
+        Route::get('messages/customer/{customerUuid}', [MessageController::class, 'getCustomerMessages']);
     });
 });

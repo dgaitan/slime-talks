@@ -39,4 +39,16 @@ interface MessageServiceInterface
      * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If channel not found
      */
     public function getChannelMessages(string $channelUuid, int $clientId, int $limit = 10, ?string $startingAfter = null): array;
+
+    /**
+     * Get messages for a customer.
+     *
+     * @param string $customerUuid Customer UUID
+     * @param int $clientId Client ID
+     * @param int $limit Number of messages per page
+     * @param string|null $startingAfter Message UUID to start after
+     * @return array{data: \Illuminate\Database\Eloquent\Collection, has_more: bool, total_count: int}
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If customer not found
+     */
+    public function getCustomerMessages(string $customerUuid, int $clientId, int $limit = 10, ?string $startingAfter = null): array;
 }

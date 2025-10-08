@@ -114,4 +114,52 @@ class MessageController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get messages for a customer.
+     *
+     * Retrieves paginated messages from all channels where the customer has sent messages.
+     * Messages are ordered by creation time (newest first).
+     *
+     * @param string $customerUuid Customer UUID
+     * @param Request $request The HTTP request
+     * @return JsonResponse The messages response
+     */
+    public function getCustomerMessages(string $customerUuid, Request $request): JsonResponse
+    {
+        try {
+            $client = auth('sanctum')->user();
+            
+            $limit = (int) $request->get('limit', 10);
+            $startingAfter = $request->get('starting_after');
+
+            $result = $this->messageService->getCustomerMessages(
+                $customerUuid,
+                $client->id,
+                $limit,
+                $startingAfter
+            );
+
+            return response()->json([
+                'object' => 'list',
+                'data' => MessageResource::collection($result['data']),
+                'has_more' => $result['has_more'],
+                'total_count' => $result['total_count'],
+            ]);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'error' => 'Customer not found',
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Failed to retrieve customer messages', [
+                'error' => $e->getMessage(),
+                'customer_uuid' => $customerUuid,
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to retrieve messages. Please try again.',
+            ], 500);
+        }
+    }
 }

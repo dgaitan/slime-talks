@@ -163,4 +163,48 @@ class MessageService implements MessageServiceInterface
             throw new \Illuminate\Database\Eloquent\ModelNotFoundException('Channel not found');
         }
     }
+
+    /**
+     * Get messages for a customer.
+     *
+     * Validates that the customer belongs to the authenticated client
+     * and returns paginated messages ordered by creation time (newest first).
+     *
+     * @param string $customerUuid Customer UUID
+     * @param int $clientId Client ID
+     * @param int $limit Number of messages per page
+     * @param string|null $startingAfter Message UUID to start after
+     * @return array{data: \Illuminate\Database\Eloquent\Collection, has_more: bool, total_count: int}
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If customer not found
+     */
+    public function getCustomerMessages(string $customerUuid, int $clientId, int $limit = 10, ?string $startingAfter = null): array
+    {
+        try {
+            // Find customer and validate it belongs to client
+            $customer = $this->messageRepository->findCustomerByUuidAndClient($customerUuid, $clientId);
+
+            if (!$customer) {
+                Log::warning('Customer messages retrieval failed: Customer not found or does not belong to client', [
+                    'customer_uuid' => $customerUuid,
+                    'client_id' => $clientId,
+                ]);
+
+                throw new \Illuminate\Database\Eloquent\ModelNotFoundException('Customer not found');
+            }
+
+            // Get messages for the customer
+            return $this->messageRepository->getMessagesForCustomer($customer->id, $clientId, $limit, $startingAfter);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            Log::error('Unexpected error retrieving customer messages', [
+                'error' => $e->getMessage(),
+                'customer_uuid' => $customerUuid,
+                'client_id' => $clientId,
+            ]);
+
+            throw new \Illuminate\Database\Eloquent\ModelNotFoundException('Customer not found');
+        }
+    }
 }

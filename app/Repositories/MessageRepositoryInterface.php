@@ -72,4 +72,15 @@ interface MessageRepositoryInterface
      * @return array{data: \Illuminate\Database\Eloquent\Collection, has_more: bool, total_count: int}
      */
     public function getMessagesForChannel(int $channelId, int $clientId, int $limit = 10, ?string $startingAfter = null): array;
+
+    /**
+     * Get messages for a customer with pagination.
+     *
+     * @param int $customerId Customer ID
+     * @param int $clientId Client ID
+     * @param int $limit Number of messages per page
+     * @param string|null $startingAfter Message UUID to start after
+     * @return array{data: \Illuminate\Database\Eloquent\Collection, has_more: bool, total_count: int}
+     */
+    public function getMessagesForCustomer(int $customerId, int $clientId, int $limit = 10, ?string $startingAfter = null): array;
 }

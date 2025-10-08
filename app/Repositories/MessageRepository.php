@@ -133,4 +133,49 @@ class MessageRepository implements MessageRepositoryInterface
                 ->count(),
         ];
     }
+
+    /**
+     * Get messages for a customer with pagination.
+     *
+     * @param int $customerId Customer ID
+     * @param int $clientId Client ID
+     * @param int $limit Number of messages per page
+     * @param string|null $startingAfter Message UUID to start after
+     * @return array{data: \Illuminate\Database\Eloquent\Collection, has_more: bool, total_count: int}
+     */
+    public function getMessagesForCustomer(int $customerId, int $clientId, int $limit = 10, ?string $startingAfter = null): array
+    {
+        $query = Message::where('sender_id', $customerId)
+            ->where('client_id', $clientId)
+            ->orderBy('created_at', 'desc')
+            ->orderBy('id', 'desc');
+
+        if ($startingAfter) {
+            $startingMessage = Message::where('uuid', $startingAfter)->first();
+            if ($startingMessage) {
+                $query->where(function ($q) use ($startingMessage) {
+                    $q->where('created_at', '<', $startingMessage->created_at)
+                        ->orWhere(function ($subQ) use ($startingMessage) {
+                            $subQ->where('created_at', $startingMessage->created_at)
+                                ->where('id', '<', $startingMessage->id);
+                        });
+                });
+            }
+        }
+
+        $messages = $query->limit($limit + 1)->get();
+        $hasMore = $messages->count() > $limit;
+        
+        if ($hasMore) {
+            $messages->pop();
+        }
+
+        return [
+            'data' => $messages,
+            'has_more' => $hasMore,
+            'total_count' => Message::where('sender_id', $customerId)
+                ->where('client_id', $clientId)
+                ->count(),
+        ];
+    }
 }
