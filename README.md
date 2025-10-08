@@ -1,61 +1,264 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Slime Talks - Messaging API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A comprehensive messaging API that provides chat functionality for any application. Built with Laravel and designed to be integrated into existing applications as a messaging service.
 
-## About Laravel
+## Overview
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Slime Talks is a client-based messaging API that allows applications to implement chat functionality without building their own messaging infrastructure. Each client can have multiple customers, channels, and messages, all properly isolated and secured.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Architecture
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### Core Concepts
 
-## Learning Laravel
+- **Client**: The main entity that represents an application using the messaging service
+- **Customer**: Users within a client's application who can send and receive messages
+- **Channel**: Communication channels between customers (General or Custom)
+- **Message**: Individual messages sent within channels
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### Data Model
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+```
+Client (1) ──→ (N) Customer
+Client (1) ──→ (N) Channel
+Client (1) ──→ (N) Message
+Customer (N) ──→ (N) Channel (Many-to-Many)
+Channel (1) ──→ (N) Message
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Features
 
-## Laravel Sponsors
+### Client Management
+- **Secure Authentication**: Each client has a unique public key and API token
+- **Domain Validation**: Requests are validated against registered domains
+- **Artisan Command**: Easy client creation via `php artisan slime-chat:start-client`
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### Channel Types
+- **General Channel**: Default direct messaging between two customers
+- **Custom Channel**: Topic-specific conversations between customers
+- **Auto-Creation**: General channels are automatically created when custom channels are established
 
-### Premium Partners
+### Security
+- **Client-Based Authentication**: All endpoints require valid client credentials
+- **Origin Validation**: Requests must come from registered domains
+- **Token-Based Security**: API tokens are bound to specific clients
+- **UUID-Based IDs**: All public-facing IDs use UUIDs for security
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## API Endpoints
 
-## Contributing
+### Authentication
+All endpoints require the following headers:
+- `Authorization: Bearer {token}`
+- `X-Public-Key: {public_key}`
+- `Origin: {domain}` (for browser requests)
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Client Endpoints
+- `GET /api/v1/client/{uuid}` - Get client information
 
-## Code of Conduct
+### Customer Endpoints
+- `POST /api/v1/customers` - Create a new customer
+- `GET /api/v1/customers/{uuid}` - Get customer information
+- `GET /api/v1/customers` - List all customers for a client
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### Channel Endpoints
+- `POST /api/v1/channels` - Create a new channel
+- `GET /api/v1/channels/{uuid}` - Get channel information
+- `GET /api/v1/channels` - List all channels for a client
+- `GET /api/v1/channels/customer/{customer_uuid}` - Get channels for a specific customer
 
-## Security Vulnerabilities
+### Message Endpoints
+- `POST /api/v1/messages` - Send a new message
+- `GET /api/v1/messages/channel/{channel_uuid}` - Get messages for a channel
+- `GET /api/v1/messages/customer/{customer_uuid}` - Get messages for a customer
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Installation & Setup
+
+### Prerequisites
+- PHP 8.1+
+- Laravel 11+
+- MySQL/PostgreSQL
+- Composer
+
+### Installation
+```bash
+# Clone the repository
+git clone <repository-url>
+cd slime-talks
+
+# Install dependencies
+composer install
+
+# Copy environment file
+cp .env.example .env
+
+# Generate application key
+php artisan key:generate
+
+# Run migrations
+php artisan migrate
+
+# Create a client
+php artisan slime-chat:start-client
+```
+
+### Environment Configuration
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=slime_talks
+DB_USERNAME=root
+DB_PASSWORD=
+
+SANCTUM_STATEFUL_DOMAINS=localhost,127.0.0.1
+```
+
+## Usage Examples
+
+### Creating a Client
+```bash
+php artisan slime-chat:start-client
+```
+
+This will prompt for:
+- Client name
+- Domain where requests will be received
+
+The command returns:
+- Client UUID
+- Public Key (for X-Public-Key header)
+- API Token (for Authorization header)
+
+### API Usage
+
+#### Create a Customer
+```bash
+curl -X POST https://your-api.com/api/v1/customers \
+  -H "Authorization: Bearer your-token" \
+  -H "X-Public-Key: your-public-key" \
+  -H "Origin: your-domain.com" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "John Doe",
+    "email": "john@example.com"
+  }'
+```
+
+#### Create a Channel
+```bash
+curl -X POST https://your-api.com/api/v1/channels \
+  -H "Authorization: Bearer your-token" \
+  -H "X-Public-Key: your-public-key" \
+  -H "Origin: your-domain.com" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "general",
+    "customer1_uuid": "customer-uuid-1",
+    "customer2_uuid": "customer-uuid-2"
+  }'
+```
+
+#### Send a Message
+```bash
+curl -X POST https://your-api.com/api/v1/messages \
+  -H "Authorization: Bearer your-token" \
+  -H "X-Public-Key: your-public-key" \
+  -H "Origin: your-domain.com" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "channel_uuid": "channel-uuid",
+    "sender_uuid": "customer-uuid",
+    "content": "Hello, how are you?",
+    "message_type": "text"
+  }'
+```
+
+## Data Models
+
+### Client
+- `id`: Primary key
+- `uuid`: Public-facing identifier
+- `name`: Client name
+- `domain`: Registered domain
+- `public_key`: Authentication key
+- `allowed_ips`: IP restrictions (optional)
+- `allowed_subdomains`: Subdomain restrictions (optional)
+
+### Customer
+- `id`: Primary key
+- `uuid`: Public-facing identifier
+- `client_id`: Associated client
+- `name`: Customer name
+- `email`: Customer email
+- `metadata`: Additional customer data (JSON)
+
+### Channel
+- `id`: Primary key
+- `uuid`: Public-facing identifier
+- `client_id`: Associated client
+- `type`: "general" or "custom"
+- `name`: Channel name (for custom channels)
+- `created_at`: Channel creation time
+
+### Message
+- `id`: Primary key
+- `uuid`: Public-facing identifier
+- `client_id`: Associated client
+- `channel_id`: Associated channel
+- `sender_id`: Customer who sent the message
+- `content`: Message content
+- `message_type`: Type of message (text, image, file, etc.)
+- `metadata`: Additional message data (JSON)
+- `created_at`: Message timestamp
+
+## Security
+
+### Authentication Flow
+1. Client provides API token in Authorization header
+2. Client provides public key in X-Public-Key header
+3. System validates token belongs to client with matching public key
+4. System validates request origin against client's registered domain
+5. Request is authorized if all checks pass
+
+### Best Practices
+- Store API tokens securely
+- Use HTTPS in production
+- Implement rate limiting
+- Monitor for suspicious activity
+- Regularly rotate API tokens
+
+## Development
+
+### Testing
+```bash
+# Run all tests
+php artisan test
+
+# Run specific test suite
+php artisan test --filter=ClientTest
+
+# Run with coverage
+php artisan test --coverage
+```
+
+### Code Standards
+- Follow PSR-12 coding standards
+- Use strict typing
+- Write comprehensive PHPDoc blocks
+- Implement Test-Driven Development (TDD)
+- Use API Resources for responses
+- Create Form Request classes for validation
+
+### Contributing
+1. Write tests first (TDD approach)
+2. Follow coding standards
+3. Ensure all tests pass
+4. Update documentation
+5. Submit pull request
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+This project is licensed under the MIT License.
+
+## Support
+
+For support and questions, please contact the development team or create an issue in the repository.
