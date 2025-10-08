@@ -20,6 +20,7 @@ class ClientFactory extends Factory
     public function definition(): array
     {
         return [
+            'uuid' => \Illuminate\Support\Str::uuid(),
             'name' => 'Test Client ' . rand(100, 999),
             'domain' => 'example' . rand(100, 999) . '.com',
             'public_key' => 'test-public-key-' . uniqid(),

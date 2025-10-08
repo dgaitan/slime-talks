@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 use App\Models\Client;
 use App\Models\Customer;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-
-uses(RefreshDatabase::class);
 
 describe('Customer API', function () {
     beforeEach(function () {

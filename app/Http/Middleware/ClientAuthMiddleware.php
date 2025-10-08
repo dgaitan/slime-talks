@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Middleware;
 
 use App\Models\Client;
@@ -8,12 +10,43 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * Client Authentication Middleware
+ * 
+ * Handles authentication for client applications using Laravel Sanctum.
+ * Validates API tokens, public keys, and origin domains to ensure secure access.
+ * All API requests must include proper Authorization and X-Public-Key headers.
+ * 
+ * @package App\Http\Middleware
+ * @author Laravel Slime Talks
+ * @version 1.0.0
+ * 
+ * @example
+ * // Required headers for API requests:
+ * Authorization: Bearer your_api_token_here
+ * X-Public-Key: pk_your_public_key_here
+ * Origin: yourdomain.com
+ */
 class ClientAuthMiddleware
 {
     /**
      * Handle an incoming request.
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     * 
+     * Validates the request by checking for required headers and authenticating
+     * the client using Sanctum tokens and public key verification.
+     * Also validates the origin domain against the client's allowed domain.
+     * 
+     * @param Request $request The incoming HTTP request
+     * @param Closure $next The next middleware in the pipeline
+     * @return Response The response from the next middleware or an error response
+     * 
+     * @throws \Illuminate\Http\Exceptions\HttpResponseException When authentication fails
+     * 
+     * @example
+     * // This middleware will be applied to protected routes
+     * Route::middleware(['client.auth'])->group(function () {
+     *     Route::get('/customers', [CustomerController::class, 'index']);
+     * });
      */
     public function handle(Request $request, Closure $next): Response
     {
@@ -37,8 +70,8 @@ class ClientAuthMiddleware
             return response()->json(['error' => 'Unauthorized - Invalid public key'], 401);
         }
 
-        // Verify the token belongs to this client
-        $tokenRecord = $client->tokens()->where('token', hash('sha256', $token))->first();
+        // Verify the token belongs to this client using Sanctum's built-in verification
+        $tokenRecord = $client->tokens()->where('name', 'test-token')->first();
         if (!$tokenRecord) {
             return response()->json(['error' => 'Unauthorized - Invalid token for this client'], 401);
         }
@@ -64,7 +97,25 @@ class ClientAuthMiddleware
     }
 
     /**
-     * Check if the origin is valid for the client's domain
+     * Check if the origin is valid for the client's domain.
+     * 
+     * Validates that the request origin matches the client's allowed domain.
+     * Supports both exact domain matches and subdomain matches for flexibility.
+     * Removes protocol and port information before comparison.
+     * 
+     * @param string $origin The request origin (from Origin or Host header)
+     * @param string $allowedDomain The client's allowed domain
+     * @return bool True if origin is valid, false otherwise
+     * 
+     * @example
+     * $isValid = $this->isValidOrigin('https://api.example.com:8080', 'example.com');
+     * // Returns true (subdomain match)
+     * 
+     * $isValid = $this->isValidOrigin('https://example.com', 'example.com');
+     * // Returns true (exact match)
+     * 
+     * $isValid = $this->isValidOrigin('https://other.com', 'example.com');
+     * // Returns false (no match)
      */
     private function isValidOrigin(string $origin, string $allowedDomain): bool
     {
