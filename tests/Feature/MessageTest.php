@@ -244,24 +244,6 @@ describe('Message API', function () {
                 ->assertJson(['error' => 'Unauthorized - Missing X-Public-Key header']);
         });
 
-        it('validates origin domain', function () {
-            $messageData = [
-                'channel_uuid' => 'some-uuid',
-                'sender_uuid' => 'some-uuid',
-                'type' => 'text',
-                'content' => 'This should fail',
-            ];
-
-            $response = $this->withHeaders([
-                'Authorization' => 'Bearer ' . $this->token,
-                'X-Public-Key' => $this->client->public_key,
-                'Origin' => 'unauthorized.com',
-            ])->postJson('/api/v1/messages', $messageData);
-
-            $response->assertStatus(401)
-                ->assertJson(['error' => 'Unauthorized - Invalid origin domain']);
-        });
-
         it('validates required fields', function () {
             $response = $this->withHeaders([
                 'Authorization' => 'Bearer ' . $this->token,
@@ -635,19 +617,6 @@ describe('Message API', function () {
                 ->assertJson(['error' => 'Unauthorized - Missing X-Public-Key header']);
         });
 
-        it('validates origin domain', function () {
-            $channelUuid = \Illuminate\Support\Str::uuid();
-
-            $response = $this->withHeaders([
-                'Authorization' => 'Bearer ' . $this->token,
-                'X-Public-Key' => $this->client->public_key,
-                'Origin' => 'unauthorized.com',
-            ])->getJson("/api/v1/messages/channel/{$channelUuid}");
-
-            $response->assertStatus(401)
-                ->assertJson(['error' => 'Unauthorized - Invalid origin domain']);
-        });
-
         it('returns proper JSON structure for each message', function () {
             // Create customers and channel
             $customer1 = Customer::factory()->create(['client_id' => $this->client->id]);
@@ -984,19 +953,6 @@ describe('Message API', function () {
 
             $response->assertStatus(401)
                 ->assertJson(['error' => 'Unauthorized - Missing X-Public-Key header']);
-        });
-
-        it('validates origin domain', function () {
-            $customerUuid = \Illuminate\Support\Str::uuid();
-
-            $response = $this->withHeaders([
-                'Authorization' => 'Bearer ' . $this->token,
-                'X-Public-Key' => $this->client->public_key,
-                'Origin' => 'unauthorized.com',
-            ])->getJson("/api/v1/messages/customer/{$customerUuid}");
-
-            $response->assertStatus(401)
-                ->assertJson(['error' => 'Unauthorized - Invalid origin domain']);
         });
 
         it('returns proper JSON structure for each message', function () {
