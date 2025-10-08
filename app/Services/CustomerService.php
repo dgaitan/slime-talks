@@ -93,7 +93,9 @@ class CustomerService implements CustomerServiceInterface
     private function ensureEmailUniqueness(Client $client, string $email): void
     {
         if ($this->customerRepository->existsByEmailAndClient($email, $client)) {
-            throw new ValidationException('Email already exists for this client');
+            $validator = \Illuminate\Support\Facades\Validator::make([], []);
+            $validator->errors()->add('email', 'Email already exists for this client');
+            throw new ValidationException($validator);
         }
     }
 }

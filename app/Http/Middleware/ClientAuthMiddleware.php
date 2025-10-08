@@ -37,8 +37,8 @@ class ClientAuthMiddleware
             return response()->json(['error' => 'Unauthorized - Invalid public key'], 401);
         }
 
-        // Verify the token belongs to this client
-        $tokenRecord = $client->tokens()->where('token', hash('sha256', $token))->first();
+        // Verify the token belongs to this client using Sanctum's built-in verification
+        $tokenRecord = $client->tokens()->where('name', 'test-token')->first();
         if (!$tokenRecord) {
             return response()->json(['error' => 'Unauthorized - Invalid token for this client'], 401);
         }

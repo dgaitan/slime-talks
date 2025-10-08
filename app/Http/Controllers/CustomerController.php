@@ -25,7 +25,7 @@ class CustomerController extends Controller
         $startingAfter = $request->get('starting_after');
 
         $result = $this->customerService->list(
-            auth()->user(), // Client from middleware
+            auth('sanctum')->user(), // Client from middleware
             $limit,
             $startingAfter
         );
@@ -44,7 +44,7 @@ class CustomerController extends Controller
     public function store(CreateCustomerRequest $request): JsonResponse
     {
         $customer = $this->customerService->create(
-            auth()->user(), // Client from middleware
+            auth('sanctum')->user(), // Client from middleware
             $request->validated()
         );
 
@@ -57,7 +57,7 @@ class CustomerController extends Controller
     public function show(string $uuid): JsonResponse
     {
         $customer = $this->customerService->getByUuid(
-            auth()->user(), // Client from middleware
+            auth('sanctum')->user(), // Client from middleware
             $uuid
         );
 
