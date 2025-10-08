@@ -122,41 +122,74 @@
 - [ ] Rejects if customers belong to different clients
 - [ ] Requires authentication
 
-### Story 2.3: Retrieve Channel
-**As a** client application  
-**I want to** retrieve channel information  
-**So that** I can display channel details  
+### Story 2.3: Retrieve Channel ✅ **COMPLETED**
+**As a** client application
+**I want to** retrieve channel information
+**So that** I can display channel details
 
 **Acceptance Criteria:**
-- [ ] GET `/api/v1/channels/{uuid}` endpoint exists
-- [ ] Returns channel data
-- [ ] Only returns channels belonging to authenticated client
-- [ ] Returns 404 for non-existent channel
-- [ ] Returns 404 for channel from different client
+- [x] GET `/api/v1/channels/{uuid}` endpoint exists
+- [x] Returns channel data
+- [x] Only returns channels belonging to authenticated client
+- [x] Returns 404 for non-existent channel
+- [x] Returns 404 for channel from different client
 
-### Story 2.4: List Channels
+**Test Cases:**
+- [x] Can retrieve channel information when authenticated
+- [x] Returns 404 for non-existent channel
+- [x] Returns 404 for channel from different client
+- [x] Requires authentication
+- [x] Requires public key header
+- [x] Validates origin domain
+- [x] Can retrieve custom channel
+- [x] Returns proper JSON structure
+
+### Story 2.4: List Channels ✅ **COMPLETED**
 **As a** client application  
 **I want to** list all channels for my client  
 **So that** I can manage conversations  
 
 **Acceptance Criteria:**
-- [ ] GET `/api/v1/channels` endpoint exists
-- [ ] Returns paginated list of channels
-- [ ] Only returns channels for authenticated client
-- [ ] Supports pagination parameters
-- [ ] Returns total count
+- [x] GET `/api/v1/channels` endpoint exists
+- [x] Returns paginated list of channels
+- [x] Only returns channels for authenticated client
+- [x] Supports pagination parameters
+- [x] Returns total count
 
-### Story 2.5: Get Customer Channels
+**Test Cases:**
+- [x] Can list channels for authenticated client
+- [x] Only returns channels for authenticated client
+- [x] Supports pagination parameters
+- [x] Supports cursor-based pagination with starting_after
+- [x] Returns empty list when no channels exist
+- [x] Requires authentication
+- [x] Requires public key header
+- [x] Validates origin domain
+- [x] Returns proper JSON structure for each channel
+- [x] Handles default pagination parameters
+
+### Story 2.5: Get Customer Channels ✅ **COMPLETED**
 **As a** client application  
 **I want to** get all channels for a specific customer  
 **So that** I can show their conversation list  
 
 **Acceptance Criteria:**
-- [ ] GET `/api/v1/channels/customer/{customer_uuid}` endpoint exists
-- [ ] Returns channels where customer participates
-- [ ] Only returns channels for authenticated client
-- [ ] Returns 404 for non-existent customer
-- [ ] Returns 404 for customer from different client
+- [x] GET `/api/v1/channels/customer/{customer_uuid}` endpoint exists
+- [x] Returns channels where customer participates
+- [x] Only returns channels for authenticated client
+- [x] Returns 404 for non-existent customer
+- [x] Returns 404 for customer from different client
+
+**Test Cases:**
+- [x] Can get channels for a specific customer
+- [x] Only returns channels for authenticated client
+- [x] Returns 404 for non-existent customer
+- [x] Returns 404 for customer from different client
+- [x] Returns empty list when customer has no channels
+- [x] Requires authentication
+- [x] Requires public key header
+- [x] Validates origin domain
+- [x] Returns proper JSON structure for each channel
 
 ## Epic 3: Message Management
 

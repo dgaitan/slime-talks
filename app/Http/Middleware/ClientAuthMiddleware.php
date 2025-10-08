@@ -8,6 +8,7 @@ use App\Models\Client;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -53,6 +54,13 @@ class ClientAuthMiddleware
         // Check for Authorization header
         $authHeader = $request->header('Authorization');
         if (!$authHeader || !str_starts_with($authHeader, 'Bearer ')) {
+            Log::warning('Authentication failed - Missing or invalid Authorization header', [
+                'url' => $request->url(),
+                'method' => $request->method(),
+                'ip' => $request->ip(),
+                'auth_header_present' => !empty($authHeader),
+                'auth_header_format' => $authHeader ? 'invalid' : 'missing',
+            ]);
             return response()->json(['error' => 'Unauthorized - Missing or invalid Authorization header'], 401);
         }
 
@@ -61,18 +69,36 @@ class ClientAuthMiddleware
         // Check for Public Key header
         $publicKey = $request->header('X-Public-Key');
         if (!$publicKey) {
+            Log::warning('Authentication failed - Missing X-Public-Key header', [
+                'url' => $request->url(),
+                'method' => $request->method(),
+                'ip' => $request->ip(),
+            ]);
             return response()->json(['error' => 'Unauthorized - Missing X-Public-Key header'], 401);
         }
 
         // Find client by public key
         $client = Client::where('public_key', $publicKey)->first();
         if (!$client) {
+            Log::warning('Authentication failed - Invalid public key', [
+                'url' => $request->url(),
+                'method' => $request->method(),
+                'ip' => $request->ip(),
+                'public_key' => $publicKey,
+            ]);
             return response()->json(['error' => 'Unauthorized - Invalid public key'], 401);
         }
 
         // Verify the token belongs to this client using Sanctum's built-in verification
         $tokenRecord = $client->tokens()->where('name', 'test-token')->first();
         if (!$tokenRecord) {
+            Log::warning('Authentication failed - Invalid token for client', [
+                'client_id' => $client->id,
+                'client_uuid' => $client->uuid,
+                'url' => $request->url(),
+                'method' => $request->method(),
+                'ip' => $request->ip(),
+            ]);
             return response()->json(['error' => 'Unauthorized - Invalid token for this client'], 401);
         }
 
@@ -83,6 +109,15 @@ class ClientAuthMiddleware
             
             // Check if the origin matches the client's domain or is a subdomain
             if (!$this->isValidOrigin($origin, $allowedDomain)) {
+                Log::warning('Authentication failed - Invalid origin domain', [
+                    'client_id' => $client->id,
+                    'client_uuid' => $client->uuid,
+                    'origin' => $origin,
+                    'allowed_domain' => $allowedDomain,
+                    'url' => $request->url(),
+                    'method' => $request->method(),
+                    'ip' => $request->ip(),
+                ]);
                 return response()->json(['error' => 'Unauthorized - Invalid origin domain'], 401);
             }
         }

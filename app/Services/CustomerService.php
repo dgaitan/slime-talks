@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\Client;
 use App\Models\Customer;
 use App\Repositories\CustomerRepositoryInterface;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -61,18 +62,44 @@ class CustomerService implements CustomerServiceInterface
      */
     public function create(Client $client, array $data): Customer
     {
-        $this->validateCustomerData($data);
-        $this->ensureEmailUniqueness($client, $data['email']);
-        
-        $customer = $this->customerRepository->create([
-            'client_id' => $client->id,
-            'uuid' => Str::uuid(),
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'metadata' => $data['metadata'] ?? [],
-        ]);
+        try {
+            $this->validateCustomerData($data);
+            $this->ensureEmailUniqueness($client, $data['email']);
+            
+            $customerData = [
+                'client_id' => $client->id,
+                'uuid' => Str::uuid(),
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'metadata' => $data['metadata'] ?? [],
+            ];
+            
+            $customer = $this->customerRepository->create($customerData);
 
-        return $customer;
+            return $customer;
+
+        } catch (ValidationException $e) {
+            Log::warning('Customer creation failed due to validation error', [
+                'client_id' => $client->id,
+                'client_uuid' => $client->uuid,
+                'customer_name' => $data['name'] ?? 'unknown',
+                'customer_email' => $data['email'] ?? 'unknown',
+                'validation_errors' => $e->errors(),
+                'error_message' => $e->getMessage(),
+            ]);
+            throw $e;
+
+        } catch (\Exception $e) {
+            Log::error('Customer creation failed with unexpected error', [
+                'client_id' => $client->id,
+                'client_uuid' => $client->uuid,
+                'customer_name' => $data['name'] ?? 'unknown',
+                'customer_email' => $data['email'] ?? 'unknown',
+                'error_message' => $e->getMessage(),
+                'error_trace' => $e->getTraceAsString(),
+            ]);
+            throw $e;
+        }
     }
 
     /**
