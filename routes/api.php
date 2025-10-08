@@ -15,5 +15,6 @@ Route::prefix('v1')->group(function () {
         Route::get('client/{client}', [ClientController::class, 'show']);
         Route::apiResource('customers', CustomerController::class);
         Route::post('channels', [ChannelController::class, 'store']);
+        Route::get('channels/{channel}', [ChannelController::class, 'show']);
     });
 });

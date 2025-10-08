@@ -94,4 +94,39 @@ class ChannelController extends Controller
             throw $e;
         }
     }
+
+    /**
+     * Display the specified channel.
+     *
+     * Retrieves a single channel by UUID for the authenticated client.
+     * Only returns channels that belong to the authenticated client.
+     *
+     * @param string $uuid Channel UUID to retrieve
+     * @return JsonResponse JSON response with channel data
+     *
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException When channel not found
+     * @throws \Illuminate\Auth\AuthenticationException When client is not authenticated
+     *
+     * @example
+     * GET /api/v1/channels/channel_uuid_here
+     *
+     * Response (200):
+     * {
+     *     "object": "channel",
+     *     "id": "channel_uuid",
+     *     "type": "general",
+     *     "name": "general",
+     *     "created": 1640995200,
+     *     "livemode": false
+     * }
+     */
+    public function show(string $uuid): JsonResponse
+    {
+        $channel = $this->channelService->getByUuid(
+            auth('sanctum')->user(), // Client from middleware
+            $uuid
+        );
+
+        return response()->json(new ChannelResource($channel));
+    }
 }

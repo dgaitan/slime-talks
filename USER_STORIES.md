@@ -122,17 +122,27 @@
 - [ ] Rejects if customers belong to different clients
 - [ ] Requires authentication
 
-### Story 2.3: Retrieve Channel
-**As a** client application  
-**I want to** retrieve channel information  
-**So that** I can display channel details  
+### Story 2.3: Retrieve Channel ✅ **COMPLETED**
+**As a** client application
+**I want to** retrieve channel information
+**So that** I can display channel details
 
 **Acceptance Criteria:**
-- [ ] GET `/api/v1/channels/{uuid}` endpoint exists
-- [ ] Returns channel data
-- [ ] Only returns channels belonging to authenticated client
-- [ ] Returns 404 for non-existent channel
-- [ ] Returns 404 for channel from different client
+- [x] GET `/api/v1/channels/{uuid}` endpoint exists
+- [x] Returns channel data
+- [x] Only returns channels belonging to authenticated client
+- [x] Returns 404 for non-existent channel
+- [x] Returns 404 for channel from different client
+
+**Test Cases:**
+- [x] Can retrieve channel information when authenticated
+- [x] Returns 404 for non-existent channel
+- [x] Returns 404 for channel from different client
+- [x] Requires authentication
+- [x] Requires public key header
+- [x] Validates origin domain
+- [x] Can retrieve custom channel
+- [x] Returns proper JSON structure
 
 ### Story 2.4: List Channels
 **As a** client application  

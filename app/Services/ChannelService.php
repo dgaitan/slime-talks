@@ -243,4 +243,24 @@ class ChannelService implements ChannelServiceInterface
             $this->channelRepository->attachCustomers($generalChannel, $customerIds);
         }
     }
+
+    /**
+     * Get channel by UUID for a specific client.
+     *
+     * Retrieves a channel by UUID, ensuring it belongs to the specified client.
+     * This provides client isolation - clients can only access their own channels.
+     *
+     * @param Client $client The client requesting the channel
+     * @param string $uuid Channel UUID to retrieve
+     * @return Channel Channel instance
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException When channel not found or doesn't belong to client
+     *
+     * @example
+     * $channel = $service->getByUuid($client, 'channel-uuid-here');
+     * echo $channel->name; // "general"
+     */
+    public function getByUuid(Client $client, string $uuid): Channel
+    {
+        return $this->channelRepository->findByUuidAndClient($uuid, $client);
+    }
 }
