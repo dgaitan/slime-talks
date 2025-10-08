@@ -9,6 +9,7 @@ use App\Http\Resources\CustomerResource;
 use App\Services\CustomerServiceInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Customer Controller
@@ -116,12 +117,27 @@ class CustomerController extends Controller
      */
     public function store(CreateCustomerRequest $request): JsonResponse
     {
-        $customer = $this->customerService->create(
-            auth('sanctum')->user(), // Client from middleware
-            $request->validated()
-        );
+        $client = auth('sanctum')->user();
+        $validatedData = $request->validated();
 
-        return response()->json(new CustomerResource($customer), 201);
+        try {
+            $customer = $this->customerService->create($client, $validatedData);
+            
+            return response()->json(new CustomerResource($customer), 201);
+
+        } catch (\Exception $e) {
+            Log::error('Customer creation request failed', [
+                'client_id' => $client->id,
+                'client_uuid' => $client->uuid,
+                'customer_name' => $validatedData['name'] ?? 'unknown',
+                'customer_email' => $validatedData['email'] ?? 'unknown',
+                'error_message' => $e->getMessage(),
+                'error_trace' => $e->getTraceAsString(),
+                'ip' => $request->ip(),
+            ]);
+            
+            throw $e;
+        }
     }
 
     /**

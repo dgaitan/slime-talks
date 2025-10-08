@@ -8,6 +8,7 @@ use App\Http\Requests\CreateChannelRequest;
 use App\Http\Resources\ChannelResource;
 use App\Services\ChannelServiceInterface;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Channel Controller
@@ -71,11 +72,26 @@ class ChannelController extends Controller
      */
     public function store(CreateChannelRequest $request): JsonResponse
     {
-        $channel = $this->channelService->create(
-            auth('sanctum')->user(), // Client from middleware
-            $request->validated()
-        );
+        $client = auth('sanctum')->user();
+        $validatedData = $request->validated();
 
-        return response()->json(new ChannelResource($channel), 201);
+        try {
+            $channel = $this->channelService->create($client, $validatedData);
+            
+            return response()->json(new ChannelResource($channel), 201);
+
+        } catch (\Exception $e) {
+            Log::error('Channel creation request failed', [
+                'client_id' => $client->id,
+                'client_uuid' => $client->uuid,
+                'channel_type' => $validatedData['type'] ?? 'unknown',
+                'channel_name' => $validatedData['name'] ?? 'unknown',
+                'error_message' => $e->getMessage(),
+                'error_trace' => $e->getTraceAsString(),
+                'ip' => $request->ip(),
+            ]);
+            
+            throw $e;
+        }
     }
 }

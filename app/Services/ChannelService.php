@@ -8,6 +8,7 @@ use App\Models\Channel;
 use App\Models\Client;
 use App\Models\Customer;
 use App\Repositories\ChannelRepositoryInterface;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
@@ -62,32 +63,56 @@ class ChannelService implements ChannelServiceInterface
      */
     public function create(Client $client, array $data): Channel
     {
-        $this->validateChannelData($data);
-        
-        // Get customer IDs from UUIDs and validate they belong to the client
-        $customerIds = $this->getAndValidateCustomers($client, $data['customer_uuids']);
-        
-        // For general channels, check if channel already exists between these customers
-        if ($data['type'] === 'general') {
-            $this->ensureNoDuplicateGeneralChannel($customerIds, $client);
+        try {
+            $this->validateChannelData($data);
+            
+            // Get customer IDs from UUIDs and validate they belong to the client
+            $customerIds = $this->getAndValidateCustomers($client, $data['customer_uuids']);
+            
+            // For general channels, check if channel already exists between these customers
+            if ($data['type'] === 'general') {
+                $this->ensureNoDuplicateGeneralChannel($customerIds, $client);
+            }
+            
+            // For custom channels, check if general channel exists and create it if not
+            if ($data['type'] === 'custom') {
+                $this->ensureGeneralChannelExists($customerIds, $client);
+            }
+            
+            // Create the channel
+            $channelData = [
+                'client_id' => $client->id,
+                'type' => $data['type'],
+                'name' => $data['type'] === 'general' ? 'general' : $data['name'],
+            ];
+            
+            $channel = $this->channelRepository->create($channelData);
+            
+            // Attach customers to the channel
+            $this->channelRepository->attachCustomers($channel, $customerIds);
+            
+            return $channel;
+            
+        } catch (ValidationException $e) {
+            Log::warning('Channel creation failed due to validation error', [
+                'client_id' => $client->id,
+                'client_uuid' => $client->uuid,
+                'channel_type' => $data['type'] ?? 'unknown',
+                'validation_errors' => $e->errors(),
+                'error_message' => $e->getMessage(),
+            ]);
+            throw $e;
+            
+        } catch (\Exception $e) {
+            Log::error('Channel creation failed with unexpected error', [
+                'client_id' => $client->id,
+                'client_uuid' => $client->uuid,
+                'channel_type' => $data['type'] ?? 'unknown',
+                'error_message' => $e->getMessage(),
+                'error_trace' => $e->getTraceAsString(),
+            ]);
+            throw $e;
         }
-        
-        // For custom channels, check if general channel exists and create it if not
-        if ($data['type'] === 'custom') {
-            $this->ensureGeneralChannelExists($customerIds, $client);
-        }
-        
-        // Create the channel
-        $channel = $this->channelRepository->create([
-            'client_id' => $client->id,
-            'type' => $data['type'],
-            'name' => $data['type'] === 'general' ? 'general' : $data['name'],
-        ]);
-        
-        // Attach customers to the channel
-        $this->channelRepository->attachCustomers($channel, $customerIds);
-        
-        return $channel;
     }
 
     /**
@@ -148,6 +173,14 @@ class ChannelService implements ChannelServiceInterface
             ->get();
         
         if ($customers->count() !== count($customerUuids)) {
+            Log::warning('Customer validation failed - not all customers found or belong to client', [
+                'client_id' => $client->id,
+                'client_uuid' => $client->uuid,
+                'requested_uuids' => $customerUuids,
+                'found_customers' => $customers->pluck('uuid')->toArray(),
+                'missing_count' => count($customerUuids) - $customers->count(),
+            ]);
+            
             $validator = Validator::make([], []);
             $validator->errors()->add('customer_uuids', 'One or more customers do not exist or do not belong to this client');
             throw new ValidationException($validator);
@@ -196,7 +229,9 @@ class ChannelService implements ChannelServiceInterface
     private function ensureGeneralChannelExists(array $customerIds, Client $client): void
     {
         // Check if general channel already exists between these customers
-        if (!$this->channelRepository->generalChannelExistsBetweenCustomers($customerIds, $client)) {
+        $generalChannelExists = $this->channelRepository->generalChannelExistsBetweenCustomers($customerIds, $client);
+        
+        if (!$generalChannelExists) {
             // Create general channel
             $generalChannel = $this->channelRepository->create([
                 'client_id' => $client->id,
