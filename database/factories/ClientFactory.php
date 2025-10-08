@@ -20,16 +20,16 @@ class ClientFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => $this->faker->company(),
-            'domain' => $this->faker->domainName(),
-            'public_key' => 'test-public-key-' . $this->faker->uuid(),
+            'name' => 'Test Client ' . rand(100, 999),
+            'domain' => 'example' . rand(100, 999) . '.com',
+            'public_key' => 'test-public-key-' . uniqid(),
             'allowed_ips' => [
-                $this->faker->ipv4(),
-                $this->faker->ipv4(),
+                '192.168.1.1',
+                '10.0.0.1',
             ],
             'allowed_subdomains' => [
-                $this->faker->word(),
-                $this->faker->word(),
+                'api',
+                'admin',
             ],
         ];
     }
