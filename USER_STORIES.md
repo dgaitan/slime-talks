@@ -144,17 +144,29 @@
 - [x] Can retrieve custom channel
 - [x] Returns proper JSON structure
 
-### Story 2.4: List Channels
+### Story 2.4: List Channels ✅ **COMPLETED**
 **As a** client application  
 **I want to** list all channels for my client  
 **So that** I can manage conversations  
 
 **Acceptance Criteria:**
-- [ ] GET `/api/v1/channels` endpoint exists
-- [ ] Returns paginated list of channels
-- [ ] Only returns channels for authenticated client
-- [ ] Supports pagination parameters
-- [ ] Returns total count
+- [x] GET `/api/v1/channels` endpoint exists
+- [x] Returns paginated list of channels
+- [x] Only returns channels for authenticated client
+- [x] Supports pagination parameters
+- [x] Returns total count
+
+**Test Cases:**
+- [x] Can list channels for authenticated client
+- [x] Only returns channels for authenticated client
+- [x] Supports pagination parameters
+- [x] Supports cursor-based pagination with starting_after
+- [x] Returns empty list when no channels exist
+- [x] Requires authentication
+- [x] Requires public key header
+- [x] Validates origin domain
+- [x] Returns proper JSON structure for each channel
+- [x] Handles default pagination parameters
 
 ### Story 2.5: Get Customer Channels
 **As a** client application  

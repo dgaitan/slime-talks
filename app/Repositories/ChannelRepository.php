@@ -139,4 +139,48 @@ class ChannelRepository implements ChannelRepositoryInterface
     {
         return $channel->customers;
     }
+
+    /**
+     * Paginate channels for a client.
+     *
+     * Retrieves a paginated list of channels belonging to the specified client.
+     * Supports cursor-based pagination for efficient handling of large datasets.
+     * Results are ordered by creation date in descending order (newest first).
+     *
+     * @param Client $client Client instance to get channels for
+     * @param int $limit Number of channels per page
+     * @param string|null $startingAfter UUID to start after for cursor pagination
+     * @return array{data: Collection, has_more: bool, total_count: int} Paginated results
+     *
+     * @example
+     * $result = $repository->paginateByClient($client, 20, 'previous-channel-uuid');
+     * $channels = $result['data']; // Collection of channels
+     * $hasMore = $result['has_more']; // Boolean indicating if more results exist
+     * $totalCount = $result['total_count']; // Total number of channels for this client
+     */
+    public function paginateByClient(Client $client, int $limit, ?string $startingAfter = null): array
+    {
+        $query = Channel::where('client_id', $client->id)
+            ->orderBy('id', 'desc'); // Use id for consistent ordering
+
+        if ($startingAfter) {
+            $startingChannel = Channel::where('uuid', $startingAfter)->first();
+            if ($startingChannel) {
+                $query->where('id', '<', $startingChannel->id);
+            }
+        }
+
+        $channels = $query->limit($limit + 1)->get();
+        $hasMore = $channels->count() > $limit;
+        
+        if ($hasMore) {
+            $channels->pop();
+        }
+
+        return [
+            'data' => $channels,
+            'has_more' => $hasMore,
+            'total_count' => Channel::where('client_id', $client->id)->count(),
+        ];
+    }
 }

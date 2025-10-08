@@ -826,8 +826,8 @@ describe('Channel API', function () {
             
             // Verify only this client's channel is returned
             $channelIds = collect($responseData['data'])->pluck('id')->toArray();
-            expect($channelIds)->toContain($thisChannel->uuid);
-            expect($channelIds)->not->toContain($otherChannel->uuid);
+            expect($channelIds)->toContain((string) $thisChannel->uuid);
+            expect($channelIds)->not->toContain((string) $otherChannel->uuid);
         });
 
         it('supports pagination parameters', function () {
@@ -853,21 +853,25 @@ describe('Channel API', function () {
         });
 
         it('supports cursor-based pagination with starting_after', function () {
-            // Create multiple channels
-            $channels = Channel::factory()->count(5)->create([
-                'client_id' => $this->client->id,
-                'type' => 'general',
-                'name' => 'general',
-            ]);
+            // Create multiple channels with slight delays to ensure different timestamps
+            $channels = collect();
+            for ($i = 0; $i < 5; $i++) {
+                $channels->push(Channel::factory()->create([
+                    'client_id' => $this->client->id,
+                    'type' => 'general',
+                    'name' => 'general',
+                ]));
+                usleep(1000); // 1ms delay to ensure different timestamps
+            }
 
-            // Get the first channel's UUID for cursor pagination
-            $firstChannel = $channels->first();
+            // Get the third channel's UUID for cursor pagination (should return 2 channels after it)
+            $thirdChannel = $channels->skip(2)->first();
 
             $response = $this->withHeaders([
                 'Authorization' => 'Bearer ' . $this->token,
                 'X-Public-Key' => $this->client->public_key,
                 'Origin' => $this->client->domain,
-            ])->getJson("/api/v1/channels?limit=2&starting_after={$firstChannel->uuid}");
+            ])->getJson("/api/v1/channels?limit=2&starting_after={$thirdChannel->uuid}");
 
             $response->assertStatus(200);
 
@@ -875,9 +879,9 @@ describe('Channel API', function () {
             expect($responseData['data'])->toHaveCount(2);
             expect($responseData['total_count'])->toBe(5);
             
-            // Verify the first channel is not in the results (cursor pagination)
+            // Verify the third channel is not in the results (cursor pagination)
             $channelIds = collect($responseData['data'])->pluck('id')->toArray();
-            expect($channelIds)->not->toContain($firstChannel->uuid);
+            expect($channelIds)->not->toContain((string) $thirdChannel->uuid);
         });
 
         it('returns empty list when no channels exist', function () {
@@ -952,7 +956,7 @@ describe('Channel API', function () {
             ]);
 
             expect($channelData['object'])->toBe('channel');
-            expect($channelData['id'])->toBe($channel->uuid);
+            expect($channelData['id'])->toBe((string) $channel->uuid);
             expect($channelData['type'])->toBe('custom');
             expect($channelData['name'])->toBe('Project Discussion');
         });

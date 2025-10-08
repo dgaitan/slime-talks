@@ -14,6 +14,7 @@ Route::prefix('v1')->group(function () {
     Route::middleware('client.auth')->group(function () {
         Route::get('client/{client}', [ClientController::class, 'show']);
         Route::apiResource('customers', CustomerController::class);
+        Route::get('channels', [ChannelController::class, 'index']);
         Route::post('channels', [ChannelController::class, 'store']);
         Route::get('channels/{channel}', [ChannelController::class, 'show']);
     });

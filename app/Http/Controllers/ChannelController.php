@@ -8,6 +8,7 @@ use App\Http\Requests\CreateChannelRequest;
 use App\Http\Resources\ChannelResource;
 use App\Services\ChannelServiceInterface;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -128,5 +129,46 @@ class ChannelController extends Controller
         );
 
         return response()->json(new ChannelResource($channel));
+    }
+
+    /**
+     * Display a listing of channels for the authenticated client.
+     *
+     * Retrieves a paginated list of channels belonging to the authenticated client.
+     * Supports cursor-based pagination using the 'starting_after' parameter.
+     *
+     * @param Request $request HTTP request containing pagination parameters
+     * @return JsonResponse JSON response with channel list and pagination info
+     *
+     * @throws \Illuminate\Auth\AuthenticationException When client is not authenticated
+     *
+     * @example
+     * GET /api/v1/channels?limit=20&starting_after=channel_uuid_here
+     *
+     * Response:
+     * {
+     *     "object": "list",
+     *     "data": [...],
+     *     "has_more": true,
+     *     "total_count": 150
+     * }
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $limit = (int) $request->get('limit', 10);
+        $startingAfter = $request->get('starting_after');
+
+        $result = $this->channelService->list(
+            auth('sanctum')->user(), // Client from middleware
+            $limit,
+            $startingAfter
+        );
+
+        return response()->json([
+            'object' => 'list',
+            'data' => ChannelResource::collection($result['data']),
+            'has_more' => $result['has_more'],
+            'total_count' => $result['total_count'],
+        ]);
     }
 }

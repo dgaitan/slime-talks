@@ -263,4 +263,26 @@ class ChannelService implements ChannelServiceInterface
     {
         return $this->channelRepository->findByUuidAndClient($uuid, $client);
     }
+
+    /**
+     * List channels for a client with pagination.
+     *
+     * Retrieves a paginated list of channels belonging to the specified client.
+     * Supports cursor-based pagination for efficient handling of large datasets.
+     *
+     * @param Client $client The client requesting channels
+     * @param int $limit Number of channels per page (default: 10)
+     * @param string|null $startingAfter UUID to start after for cursor pagination
+     * @return array{data: \Illuminate\Database\Eloquent\Collection, has_more: bool, total_count: int} Paginated results
+     *
+     * @example
+     * $result = $service->list($client, 20, 'previous-channel-uuid');
+     * $channels = $result['data']; // Collection of channels
+     * $hasMore = $result['has_more']; // Boolean indicating if more results exist
+     * $totalCount = $result['total_count']; // Total number of channels for this client
+     */
+    public function list(Client $client, int $limit = 10, ?string $startingAfter = null): array
+    {
+        return $this->channelRepository->paginateByClient($client, $limit, $startingAfter);
+    }
 }
