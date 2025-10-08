@@ -46,6 +46,7 @@ class ChannelService implements ChannelServiceInterface
      * 
      * Validates channel data, ensures customer validation,
      * and creates a new channel record with proper relationships.
+     * For custom channels, automatically creates a general channel if it doesn't exist.
      * 
      * @param Client $client The client creating the channel
      * @param array $data Channel data containing type and customer UUIDs
@@ -54,7 +55,8 @@ class ChannelService implements ChannelServiceInterface
      * 
      * @example
      * $channel = $service->create($client, [
-     *     'type' => 'general',
+     *     'type' => 'custom',
+     *     'name' => 'Project Discussion',
      *     'customer_uuids' => ['customer-uuid-1', 'customer-uuid-2']
      * ]);
      */
@@ -70,11 +72,16 @@ class ChannelService implements ChannelServiceInterface
             $this->ensureNoDuplicateGeneralChannel($customerIds, $client);
         }
         
+        // For custom channels, check if general channel exists and create it if not
+        if ($data['type'] === 'custom') {
+            $this->ensureGeneralChannelExists($customerIds, $client);
+        }
+        
         // Create the channel
         $channel = $this->channelRepository->create([
             'client_id' => $client->id,
             'type' => $data['type'],
-            'name' => $data['type'] === 'general' ? 'general' : $data['name'] ?? 'custom',
+            'name' => $data['type'] === 'general' ? 'general' : $data['name'],
         ]);
         
         // Attach customers to the channel
@@ -169,6 +176,36 @@ class ChannelService implements ChannelServiceInterface
             $validator = Validator::make([], []);
             $validator->errors()->add('customer_uuids', 'A general channel already exists between these customers');
             throw new ValidationException($validator);
+        }
+    }
+
+    /**
+     * Ensure general channel exists for custom channel creation.
+     * 
+     * When creating a custom channel, automatically creates a general channel
+     * between the same customers if it doesn't already exist.
+     * 
+     * @param array $customerIds Array of customer IDs
+     * @param Client $client The client
+     * @return void
+     * 
+     * @example
+     * $this->ensureGeneralChannelExists([1, 2], $client);
+     * // Creates general channel between customers 1 and 2 if it doesn't exist
+     */
+    private function ensureGeneralChannelExists(array $customerIds, Client $client): void
+    {
+        // Check if general channel already exists between these customers
+        if (!$this->channelRepository->generalChannelExistsBetweenCustomers($customerIds, $client)) {
+            // Create general channel
+            $generalChannel = $this->channelRepository->create([
+                'client_id' => $client->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+            
+            // Attach customers to the general channel
+            $this->channelRepository->attachCustomers($generalChannel, $customerIds);
         }
     }
 }

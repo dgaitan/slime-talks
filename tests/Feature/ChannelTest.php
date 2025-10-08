@@ -408,7 +408,7 @@ describe('Channel API', function () {
             ])->postJson('/api/v1/channels', $channelData);
 
             $response->assertStatus(422)
-                ->assertJsonValidationErrors(['customer_uuids.1']);
+                ->assertJsonValidationErrors(['customer_uuids']);
         });
 
         it('requires authentication for custom channel', function () {

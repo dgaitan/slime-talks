@@ -33,18 +33,25 @@ class CreateChannelRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      * 
-     * Validates channel type and customer UUIDs array.
+     * Validates channel type, customer UUIDs array, and custom channel name.
      * Ensures proper format and constraints for channel creation.
      * 
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string> Validation rules
      */
     public function rules(): array
     {
-        return [
+        $rules = [
             'type' => 'required|string|in:general,custom',
             'customer_uuids' => 'required|array|min:2|max:5',
             'customer_uuids.*' => 'required|string|uuid|exists:customers,uuid',
         ];
+
+        // Add name validation for custom channels
+        if ($this->input('type') === 'custom') {
+            $rules['name'] = 'required|string|max:255|unique:channels,name,NULL,id,client_id,' . auth('sanctum')->id();
+        }
+
+        return $rules;
     }
 
     /**
@@ -66,6 +73,10 @@ class CreateChannelRequest extends FormRequest
             'customer_uuids.*.required' => 'Customer UUID is required',
             'customer_uuids.*.uuid' => 'Customer UUID must be a valid UUID',
             'customer_uuids.*.exists' => 'One or more customers do not exist',
+            'name.required' => 'Channel name is required for custom channels',
+            'name.string' => 'Channel name must be a string',
+            'name.max' => 'Channel name cannot exceed 255 characters',
+            'name.unique' => 'A channel with this name already exists for your client',
         ];
     }
 }
