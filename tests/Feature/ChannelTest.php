@@ -751,4 +751,232 @@ describe('Channel API', function () {
                 ]);
         });
     });
+
+    describe('List Channels', function () {
+        it('can list channels for authenticated client', function () {
+            // Create multiple channels for the client
+            $channel1 = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            $channel2 = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'custom',
+                'name' => 'Project Discussion',
+            ]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson('/api/v1/channels');
+
+            $response->assertStatus(200)
+                ->assertJsonStructure([
+                    'object',
+                    'data',
+                    'has_more',
+                    'total_count',
+                ])
+                ->assertJson([
+                    'object' => 'list',
+                ]);
+
+            // Check that both channels are in the response
+            $responseData = $response->json();
+            expect($responseData['data'])->toHaveCount(2);
+            expect($responseData['total_count'])->toBe(2);
+            expect($responseData['has_more'])->toBeFalse();
+        });
+
+        it('only returns channels for authenticated client', function () {
+            // Create channel for this client
+            $thisChannel = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            // Create another client and channel
+            $otherClient = Client::factory()->create([
+                'name' => 'Other Client',
+                'domain' => 'other.com',
+                'public_key' => 'other-public-key',
+            ]);
+
+            $otherChannel = Channel::factory()->create([
+                'client_id' => $otherClient->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson('/api/v1/channels');
+
+            $response->assertStatus(200);
+
+            $responseData = $response->json();
+            expect($responseData['data'])->toHaveCount(1);
+            expect($responseData['total_count'])->toBe(1);
+            
+            // Verify only this client's channel is returned
+            $channelIds = collect($responseData['data'])->pluck('id')->toArray();
+            expect($channelIds)->toContain($thisChannel->uuid);
+            expect($channelIds)->not->toContain($otherChannel->uuid);
+        });
+
+        it('supports pagination parameters', function () {
+            // Create multiple channels
+            $channels = Channel::factory()->count(5)->create([
+                'client_id' => $this->client->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson('/api/v1/channels?limit=3');
+
+            $response->assertStatus(200);
+
+            $responseData = $response->json();
+            expect($responseData['data'])->toHaveCount(3);
+            expect($responseData['total_count'])->toBe(5);
+            expect($responseData['has_more'])->toBeTrue();
+        });
+
+        it('supports cursor-based pagination with starting_after', function () {
+            // Create multiple channels
+            $channels = Channel::factory()->count(5)->create([
+                'client_id' => $this->client->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            // Get the first channel's UUID for cursor pagination
+            $firstChannel = $channels->first();
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/channels?limit=2&starting_after={$firstChannel->uuid}");
+
+            $response->assertStatus(200);
+
+            $responseData = $response->json();
+            expect($responseData['data'])->toHaveCount(2);
+            expect($responseData['total_count'])->toBe(5);
+            
+            // Verify the first channel is not in the results (cursor pagination)
+            $channelIds = collect($responseData['data'])->pluck('id')->toArray();
+            expect($channelIds)->not->toContain($firstChannel->uuid);
+        });
+
+        it('returns empty list when no channels exist', function () {
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson('/api/v1/channels');
+
+            $response->assertStatus(200)
+                ->assertJson([
+                    'object' => 'list',
+                    'data' => [],
+                    'has_more' => false,
+                    'total_count' => 0,
+                ]);
+        });
+
+        it('requires authentication', function () {
+            $response = $this->getJson('/api/v1/channels');
+
+            $response->assertStatus(401)
+                ->assertJson(['error' => 'Unauthorized - Missing or invalid Authorization header']);
+        });
+
+        it('requires public key header', function () {
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'Origin' => $this->client->domain,
+            ])->getJson('/api/v1/channels');
+
+            $response->assertStatus(401)
+                ->assertJson(['error' => 'Unauthorized - Missing X-Public-Key header']);
+        });
+
+        it('validates origin domain', function () {
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => 'unauthorized.com',
+            ])->getJson('/api/v1/channels');
+
+            $response->assertStatus(401)
+                ->assertJson(['error' => 'Unauthorized - Invalid origin domain']);
+        });
+
+        it('returns proper JSON structure for each channel', function () {
+            $channel = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'custom',
+                'name' => 'Project Discussion',
+            ]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson('/api/v1/channels');
+
+            $response->assertStatus(200);
+
+            $responseData = $response->json();
+            $channelData = $responseData['data'][0];
+
+            expect($channelData)->toHaveKeys([
+                'object',
+                'id',
+                'type',
+                'name',
+                'created',
+                'livemode',
+            ]);
+
+            expect($channelData['object'])->toBe('channel');
+            expect($channelData['id'])->toBe($channel->uuid);
+            expect($channelData['type'])->toBe('custom');
+            expect($channelData['name'])->toBe('Project Discussion');
+        });
+
+        it('handles default pagination parameters', function () {
+            // Create multiple channels
+            Channel::factory()->count(15)->create([
+                'client_id' => $this->client->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson('/api/v1/channels');
+
+            $response->assertStatus(200);
+
+            $responseData = $response->json();
+            expect($responseData['data'])->toHaveCount(10); // Default limit
+            expect($responseData['total_count'])->toBe(15);
+            expect($responseData['has_more'])->toBeTrue();
+        });
+    });
 });
