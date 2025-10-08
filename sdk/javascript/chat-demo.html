@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Slime Talks Chat Demo</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                    Roboto, sans-serif;
+                background-color: #ffffff;
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .chat-container {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                max-width: 800px;
+                margin: 0 auto;
+                height: 100vh;
+                background: white;
+            }
+
+            .chat-header {
+                padding: 20px;
+                border-bottom: 1px solid #e5e5e5;
+                background: white;
+            }
+
+            .chat-header h1 {
+                font-size: 24px;
+                font-weight: 600;
+                color: #333;
+            }
+
+            .chat-messages {
+                flex: 1;
+                overflow-y: auto;
+                padding: 20px;
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+            }
+
+            .message {
+                display: flex;
+                align-items: flex-start;
+                gap: 12px;
+                max-width: 70%;
+            }
+
+            .message.sent {
+                align-self: flex-end;
+                flex-direction: row-reverse;
+            }
+
+            .message.received {
+                align-self: flex-start;
+            }
+
+            .avatar {
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                flex-shrink: 0;
+                background-size: cover;
+                background-position: center;
+            }
+
+            .message-content {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            .message-bubble {
+                padding: 12px 16px;
+                border-radius: 18px;
+                max-width: 100%;
+                word-wrap: break-word;
+                position: relative;
+            }
+
+            .message.sent .message-bubble {
+                background-color: #000000;
+                color: white;
+                border-bottom-right-radius: 4px;
+            }
+
+            .message.received .message-bubble {
+                background-color: #f0f0f0;
+                color: #333;
+                border-bottom-left-radius: 4px;
+            }
+
+            .message-text {
+                font-size: 16px;
+                line-height: 1.4;
+            }
+
+            .message-timestamp {
+                font-size: 12px;
+                color: #999;
+                margin-top: 4px;
+            }
+
+            .message.sent .message-timestamp {
+                text-align: right;
+            }
+
+            .message.received .message-timestamp {
+                text-align: left;
+            }
+
+            .reactions {
+                display: flex;
+                gap: 4px;
+                margin-top: 4px;
+            }
+
+            .reaction {
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 12px;
+                cursor: pointer;
+                transition: transform 0.2s;
+            }
+
+            .reaction:hover {
+                transform: scale(1.1);
+            }
+
+            .typing-indicator {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 8px 16px;
+                color: #666;
+                font-style: italic;
+                font-size: 14px;
+            }
+
+            .typing-dots {
+                display: flex;
+                gap: 2px;
+            }
+
+            .typing-dot {
+                width: 4px;
+                height: 4px;
+                border-radius: 50%;
+                background-color: #666;
+                animation: typing 1.4s infinite;
+            }
+
+            .typing-dot:nth-child(2) {
+                animation-delay: 0.2s;
+            }
+
+            .typing-dot:nth-child(3) {
+                animation-delay: 0.4s;
+            }
+
+            @keyframes typing {
+                0%,
+                60%,
+                100% {
+                    transform: translateY(0);
+                }
+                30% {
+                    transform: translateY(-10px);
+                }
+            }
+
+            .chat-input-container {
+                padding: 20px;
+                border-top: 1px solid #e5e5e5;
+                background: white;
+            }
+
+            .chat-input-wrapper {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                background: #f8f8f8;
+                border: 1px solid #e0e0e0;
+                border-radius: 24px;
+                padding: 8px 16px;
+            }
+
+            .chat-input {
+                flex: 1;
+                border: none;
+                background: transparent;
+                outline: none;
+                font-size: 16px;
+                padding: 8px 0;
+                color: #333;
+            }
+
+            .chat-input::placeholder {
+                color: #999;
+            }
+
+            .emoji-button {
+                background: none;
+                border: none;
+                cursor: pointer;
+                font-size: 20px;
+                padding: 4px;
+                border-radius: 50%;
+                transition: background-color 0.2s;
+            }
+
+            .emoji-button:hover {
+                background-color: #e0e0e0;
+            }
+
+            .send-button {
+                background: #000000;
+                border: none;
+                border-radius: 50%;
+                width: 36px;
+                height: 36px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                transition: background-color 0.2s;
+            }
+
+            .send-button:hover {
+                background-color: #333;
+            }
+
+            .send-button:disabled {
+                background-color: #ccc;
+                cursor: not-allowed;
+            }
+
+            .send-icon {
+                color: white;
+                font-size: 16px;
+            }
+
+            .connection-status {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 14px;
+                font-weight: 500;
+            }
+
+            .connection-status.connected {
+                background-color: #d4edda;
+                color: #155724;
+            }
+
+            .connection-status.disconnected {
+                background-color: #f8d7da;
+                color: #721c24;
+            }
+
+            .connection-status.connecting {
+                background-color: #fff3cd;
+                color: #856404;
+            }
+
+            /* Scrollbar styling */
+            .chat-messages::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            .chat-messages::-webkit-scrollbar-track {
+                background: #f1f1f1;
+            }
+
+            .chat-messages::-webkit-scrollbar-thumb {
+                background: #c1c1c1;
+                border-radius: 3px;
+            }
+
+            .chat-messages::-webkit-scrollbar-thumb:hover {
+                background: #a8a8a8;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="connection-status" id="connection-status">
+            Connecting...
+        </div>
+
+        <div class="chat-container">
+            <div class="chat-header">
+                <h1>Micro Communities Chat</h1>
+            </div>
+
+            <div class="chat-messages" id="chat-messages">
+                <!-- Messages will be added here dynamically -->
+            </div>
+
+            <div id="typing-indicators"></div>
+
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    <input
+                        type="text"
+                        class="chat-input"
+                        id="message-input"
+                        placeholder="I'll start looking into it!"
+                        disabled
+                    />
+                    <button class="emoji-button" id="emoji-button">😊</button>
+                    <button class="send-button" id="send-button" disabled>
+                        <span class="send-icon">✈</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Include required libraries -->
+        <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
+        <script src="slime-talks-realtime.js"></script>
+        <script src="slime-talks-sdk.js"></script>
+
+        <script>
+            // Configuration - Replace with your actual credentials
+            const CONFIG = {
+                apiUrl: "https://api.slime-talks.com/api/v1",
+                secretKey: "your-api-secret-key",
+                publicKey: "your-api-public-key",
+                origin: window.location.origin,
+                pusherKey: "your-pusher-key",
+                pusherCluster: "us2",
+            };
+
+            // Demo users
+            const USERS = {
+                current: {
+                    id: "cus_current_user",
+                    name: "You",
+                    avatar: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiM0MDY2RjMiLz4KPHN2ZyB4PSI4IiB5PSI4IiB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+CjxwYXRoIGQ9Ik0xMiAxMkMxNC4yMDkxIDEyIDE2IDEwLjIwOTEgMTYgOEMxNiA1Ljc5MDg2IDE0LjIwOTEgNCAxMiA0QzkuNzkwODYgNCA4IDUuNzkwODYgOCA4QzggMTAuMjA5MSA5Ljc5MDg2IDEyIDEyIDEyWiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTEyIDE0QzguNjkxIDE0IDYgMTYuNjkxIDYgMjBIMThDMTggMTYuNjkxIDE1LjMwOSAxNCAxMiAxNFoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo8L3N2Zz4K",
+                },
+                other: {
+                    id: "cus_other_user",
+                    name: "Sarah",
+                    avatar: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGRjY5QjQiLz4KPHN2ZyB4PSI4IiB5PSI4IiB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+CjxwYXRoIGQ9Ik0xMiAxMkMxNC4yMDkxIDEyIDE2IDEwLjIwOTEgMTYgOEMxNiA1Ljc5MDg2IDE0LjIwOTEgNCAxMiA0QzkuNzkwODYgNCA4IDUuNzkwODYgOCA4QzggMTAuMjA5MSA5Ljc5MDg2IDEyIDEyIDEyWiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTEyIDE0QzguNjkxIDE0IDYgMTYuNjkxIDYgMjBIMThDMTggMTYuNjkxIDE1LjMwOSAxNCAxMiAxNFoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo8L3N2Zz4K",
+                },
+            };
+
+            // Demo data
+            const DEMO_MESSAGES = [
+                {
+                    id: "msg_1",
+                    sender: USERS.other,
+                    content:
+                        "Hey, have you heard about these micro communities people are joining?",
+                    timestamp: new Date(Date.now() - 8 * 60 * 1000), // 8 minutes ago
+                    reactions: [],
+                },
+                {
+                    id: "msg_2",
+                    sender: USERS.current,
+                    content:
+                        "Yeah, I have! They seem like a great alternative to big social media platforms.",
+                    timestamp: new Date(Date.now() - 7 * 60 * 1000), // 7 minutes ago
+                    reactions: [],
+                },
+                {
+                    id: "msg_3",
+                    sender: USERS.other,
+                    content:
+                        "Definitely. I joined one for local gardening enthusiasts. It's so much more engaging.",
+                    timestamp: new Date(Date.now() - 6 * 60 * 1000), // 6 minutes ago
+                    reactions: [
+                        { emoji: "👌", count: 1 },
+                        { emoji: "🌿", count: 1 },
+                        { emoji: "😊", count: 1 },
+                    ],
+                },
+                {
+                    id: "msg_4",
+                    sender: USERS.current,
+                    content:
+                        "That's cool. I've been looking to cut down my social media time. How do you like it?",
+                    timestamp: new Date(Date.now() - 2 * 60 * 1000), // 2 minutes ago
+                    reactions: [],
+                },
+                {
+                    id: "msg_5",
+                    sender: USERS.other,
+                    content: "I love it. More meaningful interactions.",
+                    timestamp: new Date(Date.now() - 1 * 1000), // just now
+                    reactions: [],
+                },
+            ];
+
+            // Global variables
+            let sdk = null;
+            let realtime = null;
+            let currentChannel = null;
+            let typingTimeout = null;
+
+            // DOM elements
+            const chatMessages = document.getElementById("chat-messages");
+            const messageInput = document.getElementById("message-input");
+            const sendButton = document.getElementById("send-button");
+            const emojiButton = document.getElementById("emoji-button");
+            const connectionStatus =
+                document.getElementById("connection-status");
+            const typingIndicators =
+                document.getElementById("typing-indicators");
+
+            // Initialize the application
+            async function init() {
+                try {
+                    // Initialize SDK
+                    sdk = new SlimeTalksSDK(CONFIG);
+
+                    // Initialize real-time (if Pusher is available)
+                    if (window.Pusher) {
+                        realtime = sdk.initRealtime({
+                            id: USERS.current.id,
+                            name: USERS.current.name,
+                        });
+
+                        setupRealtimeHandlers();
+                    }
+
+                    // Load demo messages
+                    loadDemoMessages();
+
+                    // Setup event listeners
+                    setupEventListeners();
+
+                    // Enable input
+                    messageInput.disabled = false;
+                    sendButton.disabled = false;
+
+                    updateConnectionStatus("connected");
+                } catch (error) {
+                    console.error("Failed to initialize:", error);
+                    updateConnectionStatus("disconnected");
+                }
+            }
+
+            // Setup real-time event handlers
+            function setupRealtimeHandlers() {
+                if (!realtime) return;
+
+                realtime.onConnected = () => {
+                    console.log("Connected to real-time messaging");
+                    updateConnectionStatus("connected");
+                };
+
+                realtime.onDisconnected = () => {
+                    console.log("Disconnected from real-time messaging");
+                    updateConnectionStatus("disconnected");
+                };
+
+                realtime.onError = (error) => {
+                    console.error("Real-time error:", error);
+                    updateConnectionStatus("disconnected");
+                };
+            }
+
+            // Load demo messages
+            function loadDemoMessages() {
+                DEMO_MESSAGES.forEach((message) => {
+                    displayMessage(message);
+                });
+            }
+
+            // Display a message in the chat
+            function displayMessage(message) {
+                const messageEl = document.createElement("div");
+                messageEl.className = `message ${
+                    message.sender.id === USERS.current.id ? "sent" : "received"
+                }`;
+                messageEl.dataset.messageId = message.id;
+
+                const avatar = document.createElement("div");
+                avatar.className = "avatar";
+                avatar.style.backgroundImage = `url(${message.sender.avatar})`;
+
+                const messageContent = document.createElement("div");
+                messageContent.className = "message-content";
+
+                const bubble = document.createElement("div");
+                bubble.className = "message-bubble";
+
+                const text = document.createElement("div");
+                text.className = "message-text";
+                text.textContent = message.content;
+
+                const timestamp = document.createElement("div");
+                timestamp.className = "message-timestamp";
+                timestamp.textContent = formatTimestamp(message.timestamp);
+
+                bubble.appendChild(text);
+                messageContent.appendChild(bubble);
+                messageContent.appendChild(timestamp);
+
+                // Add reactions if any
+                if (message.reactions && message.reactions.length > 0) {
+                    const reactionsEl = document.createElement("div");
+                    reactionsEl.className = "reactions";
+
+                    message.reactions.forEach((reaction) => {
+                        const reactionEl = document.createElement("div");
+                        reactionEl.className = "reaction";
+                        reactionEl.textContent = reaction.emoji;
+                        reactionEl.title = `${reaction.count} reaction${
+                            reaction.count > 1 ? "s" : ""
+                        }`;
+                        reactionsEl.appendChild(reactionEl);
+                    });
+
+                    messageContent.appendChild(reactionsEl);
+                }
+
+                messageEl.appendChild(avatar);
+                messageEl.appendChild(messageContent);
+
+                chatMessages.appendChild(messageEl);
+                scrollToBottom();
+            }
+
+            // Format timestamp
+            function formatTimestamp(timestamp) {
+                const now = new Date();
+                const diff = now - timestamp;
+                const minutes = Math.floor(diff / 60000);
+
+                if (minutes < 1) return "just now";
+                if (minutes < 60) return `${minutes}m ago`;
+
+                const hours = Math.floor(minutes / 60);
+                if (hours < 24) return `${hours}h ago`;
+
+                return timestamp.toLocaleDateString();
+            }
+
+            // Setup event listeners
+            function setupEventListeners() {
+                // Send message on Enter key
+                messageInput.addEventListener("keypress", (e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                    }
+                });
+
+                // Send button click
+                sendButton.addEventListener("click", sendMessage);
+
+                // Typing indicator
+                messageInput.addEventListener("input", handleTyping);
+
+                // Emoji button (placeholder)
+                emojiButton.addEventListener("click", () => {
+                    // In a real app, you'd open an emoji picker
+                    console.log("Emoji picker would open here");
+                });
+            }
+
+            // Handle typing indicator
+            function handleTyping() {
+                if (!realtime || !currentChannel) return;
+
+                // Send typing indicator
+                realtime.sendTyping(currentChannel);
+
+                // Clear existing timeout
+                if (typingTimeout) {
+                    clearTimeout(typingTimeout);
+                }
+
+                // Auto-stop typing after 3 seconds
+                typingTimeout = setTimeout(() => {
+                    realtime.stopTyping(currentChannel);
+                }, 3000);
+            }
+
+            // Send a message
+            async function sendMessage() {
+                const content = messageInput.value.trim();
+                if (!content) return;
+
+                try {
+                    // In a real app, you'd send via the API
+                    // const message = await sdk.sendMessage({
+                    //     channel_uuid: currentChannel,
+                    //     sender_uuid: USERS.current.id,
+                    //     type: 'text',
+                    //     content: content
+                    // });
+
+                    // For demo, create a local message
+                    const message = {
+                        id: "msg_" + Date.now(),
+                        sender: USERS.current,
+                        content: content,
+                        timestamp: new Date(),
+                        reactions: [],
+                    };
+
+                    displayMessage(message);
+                    messageInput.value = "";
+                    realtime?.stopTyping(currentChannel);
+                } catch (error) {
+                    console.error("Failed to send message:", error);
+                    alert("Failed to send message");
+                }
+            }
+
+            // Show typing indicator
+            function showTypingIndicator(user) {
+                const existing = document.getElementById(`typing-${user.id}`);
+                if (existing) return;
+
+                const indicator = document.createElement("div");
+                indicator.id = `typing-${user.id}`;
+                indicator.className = "typing-indicator";
+
+                const avatar = document.createElement("div");
+                avatar.className = "avatar";
+                avatar.style.backgroundImage = `url(${user.avatar})`;
+
+                const text = document.createElement("span");
+                text.textContent = `${user.name} is typing`;
+
+                const dots = document.createElement("div");
+                dots.className = "typing-dots";
+                dots.innerHTML =
+                    '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+
+                indicator.appendChild(avatar);
+                indicator.appendChild(text);
+                indicator.appendChild(dots);
+
+                typingIndicators.appendChild(indicator);
+                scrollToBottom();
+            }
+
+            // Hide typing indicator
+            function hideTypingIndicator(user) {
+                const indicator = document.getElementById(`typing-${user.id}`);
+                if (indicator) {
+                    indicator.remove();
+                }
+            }
+
+            // Update connection status
+            function updateConnectionStatus(status) {
+                connectionStatus.textContent =
+                    status === "connected"
+                        ? "Connected"
+                        : status === "connecting"
+                        ? "Connecting..."
+                        : "Disconnected";
+                connectionStatus.className = `connection-status ${status}`;
+            }
+
+            // Scroll to bottom of chat
+            function scrollToBottom() {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            // Join a channel (for demo purposes)
+            function joinChannel(channelUuid) {
+                currentChannel = channelUuid;
+
+                if (realtime) {
+                    const channel = realtime.joinChannel(channelUuid, {
+                        onMessage: (data) => {
+                            console.log("New message received:", data.message);
+                            // In a real app, you'd display the message
+                            // displayMessage(data.message);
+                        },
+                        onTypingStarted: (data) => {
+                            console.log(
+                                "User started typing:",
+                                data.typing.user
+                            );
+                            showTypingIndicator(data.typing.user);
+                        },
+                        onTypingStopped: (data) => {
+                            console.log(
+                                "User stopped typing:",
+                                data.typing.user
+                            );
+                            hideTypingIndicator(data.typing.user);
+                        },
+                    });
+                }
+            }
+
+            // Initialize the app when the page loads
+            document.addEventListener("DOMContentLoaded", init);
+
+            // For demo purposes, simulate joining a channel
+            setTimeout(() => {
+                joinChannel("ch_demo_channel");
+            }, 1000);
+        </script>
+    </body>
+</html>

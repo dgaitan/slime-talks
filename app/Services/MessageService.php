@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Events\MessageSent;
 use App\Models\Message;
 use App\Repositories\MessageRepositoryInterface;
 use Illuminate\Support\Facades\Log;
@@ -102,6 +103,9 @@ class MessageService implements MessageServiceInterface
             ];
 
             $message = $this->messageRepository->create($messageData);
+
+            // Broadcast the message to channel participants
+            broadcast(new MessageSent($message));
 
             return $message;
 
