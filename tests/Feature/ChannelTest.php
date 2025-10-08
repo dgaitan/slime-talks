@@ -983,4 +983,235 @@ describe('Channel API', function () {
             expect($responseData['has_more'])->toBeTrue();
         });
     });
+
+    describe('Get Customer Channels', function () {
+        it('can get channels for a specific customer', function () {
+            // Create customers
+            $customer1 = Customer::factory()->create(['client_id' => $this->client->id]);
+            $customer2 = Customer::factory()->create(['client_id' => $this->client->id]);
+            $customer3 = Customer::factory()->create(['client_id' => $this->client->id]);
+
+            // Create channels
+            $channel1 = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            $channel2 = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'custom',
+                'name' => 'Project Discussion',
+            ]);
+
+            $channel3 = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'custom',
+                'name' => 'Team Chat',
+            ]);
+
+            // Attach customers to channels
+            $channel1->customers()->attach([$customer1->id, $customer2->id]);
+            $channel2->customers()->attach([$customer1->id, $customer3->id]);
+            $channel3->customers()->attach([$customer2->id, $customer3->id]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/channels/customer/{$customer1->uuid}");
+
+            $response->assertStatus(200)
+                ->assertJsonStructure([
+                    'object',
+                    'data',
+                    'has_more',
+                    'total_count',
+                ])
+                ->assertJson([
+                    'object' => 'list',
+                ]);
+
+            $responseData = $response->json();
+            expect($responseData['data'])->toHaveCount(2); // customer1 is in channel1 and channel2
+            expect($responseData['total_count'])->toBe(2);
+            expect($responseData['has_more'])->toBeFalse();
+
+            // Verify the correct channels are returned
+            $channelIds = collect($responseData['data'])->pluck('id')->toArray();
+            expect($channelIds)->toContain((string) $channel1->uuid);
+            expect($channelIds)->toContain((string) $channel2->uuid);
+            expect($channelIds)->not->toContain((string) $channel3->uuid);
+        });
+
+        it('only returns channels for authenticated client', function () {
+            // Create customer for this client
+            $thisCustomer = Customer::factory()->create(['client_id' => $this->client->id]);
+
+            // Create channel for this client
+            $thisChannel = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            // Attach customer to channel
+            $thisChannel->customers()->attach([$thisCustomer->id]);
+
+            // Create another client, customer, and channel
+            $otherClient = Client::factory()->create([
+                'name' => 'Other Client',
+                'domain' => 'other.com',
+                'public_key' => 'other-public-key',
+            ]);
+
+            $otherCustomer = Customer::factory()->create(['client_id' => $otherClient->id]);
+            $otherChannel = Channel::factory()->create([
+                'client_id' => $otherClient->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            // Attach other customer to other channel
+            $otherChannel->customers()->attach([$otherCustomer->id]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/channels/customer/{$thisCustomer->uuid}");
+
+            $response->assertStatus(200);
+
+            $responseData = $response->json();
+            expect($responseData['data'])->toHaveCount(1);
+            expect($responseData['total_count'])->toBe(1);
+
+            // Verify only this client's channel is returned
+            $channelIds = collect($responseData['data'])->pluck('id')->toArray();
+            expect($channelIds)->toContain((string) $thisChannel->uuid);
+            expect($channelIds)->not->toContain((string) $otherChannel->uuid);
+        });
+
+        it('returns 404 for non-existent customer', function () {
+            $nonExistentUuid = \Illuminate\Support\Str::uuid();
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/channels/customer/{$nonExistentUuid}");
+
+            $response->assertStatus(404);
+        });
+
+        it('returns 404 for customer from different client', function () {
+            // Create another client and customer
+            $otherClient = Client::factory()->create([
+                'name' => 'Other Client',
+                'domain' => 'other.com',
+                'public_key' => 'other-public-key',
+            ]);
+
+            $otherCustomer = Customer::factory()->create(['client_id' => $otherClient->id]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/channels/customer/{$otherCustomer->uuid}");
+
+            $response->assertStatus(404);
+        });
+
+        it('returns empty list when customer has no channels', function () {
+            // Create customer but no channels
+            $customer = Customer::factory()->create(['client_id' => $this->client->id]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/channels/customer/{$customer->uuid}");
+
+            $response->assertStatus(200)
+                ->assertJson([
+                    'object' => 'list',
+                    'data' => [],
+                    'has_more' => false,
+                    'total_count' => 0,
+                ]);
+        });
+
+        it('requires authentication', function () {
+            $customer = Customer::factory()->create(['client_id' => $this->client->id]);
+
+            $response = $this->getJson("/api/v1/channels/customer/{$customer->uuid}");
+
+            $response->assertStatus(401)
+                ->assertJson(['error' => 'Unauthorized - Missing or invalid Authorization header']);
+        });
+
+        it('requires public key header', function () {
+            $customer = Customer::factory()->create(['client_id' => $this->client->id]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/channels/customer/{$customer->uuid}");
+
+            $response->assertStatus(401)
+                ->assertJson(['error' => 'Unauthorized - Missing X-Public-Key header']);
+        });
+
+        it('validates origin domain', function () {
+            $customer = Customer::factory()->create(['client_id' => $this->client->id]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => 'unauthorized.com',
+            ])->getJson("/api/v1/channels/customer/{$customer->uuid}");
+
+            $response->assertStatus(401)
+                ->assertJson(['error' => 'Unauthorized - Invalid origin domain']);
+        });
+
+        it('returns proper JSON structure for each channel', function () {
+            $customer = Customer::factory()->create(['client_id' => $this->client->id]);
+            $channel = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'custom',
+                'name' => 'Project Discussion',
+            ]);
+
+            // Attach customer to channel
+            $channel->customers()->attach([$customer->id]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/channels/customer/{$customer->uuid}");
+
+            $response->assertStatus(200);
+
+            $responseData = $response->json();
+            $channelData = $responseData['data'][0];
+
+            expect($channelData)->toHaveKeys([
+                'object',
+                'id',
+                'type',
+                'name',
+                'created',
+                'livemode',
+            ]);
+
+            expect($channelData['object'])->toBe('channel');
+            expect($channelData['id'])->toBe((string) $channel->uuid);
+            expect($channelData['type'])->toBe('custom');
+            expect($channelData['name'])->toBe('Project Discussion');
+        });
+    });
 });
