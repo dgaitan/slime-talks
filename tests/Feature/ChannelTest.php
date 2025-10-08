@@ -571,4 +571,184 @@ describe('Channel API', function () {
                 ->assertJsonValidationErrors(['name']);
         });
     });
+
+    describe('Retrieve Channel', function () {
+        it('can retrieve channel information when authenticated', function () {
+            // Create customers first
+            $customer1 = Customer::factory()->create(['client_id' => $this->client->id]);
+            $customer2 = Customer::factory()->create(['client_id' => $this->client->id]);
+
+            // Create a channel
+            $channel = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            // Attach customers to the channel
+            $channel->customers()->attach([$customer1->id, $customer2->id]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/channels/{$channel->uuid}");
+
+            $response->assertStatus(200)
+                ->assertJson([
+                    'object' => 'channel',
+                    'id' => $channel->uuid,
+                    'type' => 'general',
+                    'name' => 'general',
+                ])
+                ->assertJsonStructure([
+                    'object',
+                    'id',
+                    'type',
+                    'name',
+                    'created',
+                    'livemode',
+                ]);
+        });
+
+        it('returns 404 for non-existent channel', function () {
+            $nonExistentUuid = \Illuminate\Support\Str::uuid();
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/channels/{$nonExistentUuid}");
+
+            $response->assertStatus(404);
+        });
+
+        it('returns 404 for channel from different client', function () {
+            // Create another client and channel
+            $otherClient = Client::factory()->create([
+                'name' => 'Other Client',
+                'domain' => 'other.com',
+                'public_key' => 'other-public-key',
+            ]);
+
+            $otherChannel = Channel::factory()->create([
+                'client_id' => $otherClient->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/channels/{$otherChannel->uuid}");
+
+            $response->assertStatus(404);
+        });
+
+        it('requires authentication', function () {
+            $channel = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            $response = $this->getJson("/api/v1/channels/{$channel->uuid}");
+
+            $response->assertStatus(401)
+                ->assertJson(['error' => 'Unauthorized - Missing or invalid Authorization header']);
+        });
+
+        it('requires public key header', function () {
+            $channel = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/channels/{$channel->uuid}");
+
+            $response->assertStatus(401)
+                ->assertJson(['error' => 'Unauthorized - Missing X-Public-Key header']);
+        });
+
+        it('validates origin domain', function () {
+            $channel = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => 'unauthorized.com',
+            ])->getJson("/api/v1/channels/{$channel->uuid}");
+
+            $response->assertStatus(401)
+                ->assertJson(['error' => 'Unauthorized - Invalid origin domain']);
+        });
+
+        it('can retrieve custom channel', function () {
+            // Create customers first
+            $customer1 = Customer::factory()->create(['client_id' => $this->client->id]);
+            $customer2 = Customer::factory()->create(['client_id' => $this->client->id]);
+
+            $channel = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'custom',
+                'name' => 'Project Discussion',
+            ]);
+
+            // Attach customers to the channel
+            $channel->customers()->attach([$customer1->id, $customer2->id]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/channels/{$channel->uuid}");
+
+            $response->assertStatus(200)
+                ->assertJson([
+                    'object' => 'channel',
+                    'id' => $channel->uuid,
+                    'type' => 'custom',
+                    'name' => 'Project Discussion',
+                ]);
+        });
+
+        it('returns proper JSON structure', function () {
+            $channel = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/channels/{$channel->uuid}");
+
+            $response->assertStatus(200)
+                ->assertJsonStructure([
+                    'object',
+                    'id',
+                    'type',
+                    'name',
+                    'created',
+                    'livemode',
+                ])
+                ->assertJsonFragment([
+                    'object' => 'channel',
+                    'id' => $channel->uuid,
+                    'type' => 'general',
+                    'name' => 'general',
+                ]);
+        });
+    });
 });
