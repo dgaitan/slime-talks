@@ -171,4 +171,42 @@ class ChannelController extends Controller
             'total_count' => $result['total_count'],
         ]);
     }
+
+    /**
+     * Display channels for a specific customer.
+     *
+     * Retrieves all channels where the specified customer participates.
+     * Only returns channels belonging to the authenticated client.
+     *
+     * @param string $customerUuid Customer UUID to get channels for
+     * @return JsonResponse JSON response with customer's channels
+     *
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException When customer not found
+     * @throws \Illuminate\Auth\AuthenticationException When client is not authenticated
+     *
+     * @example
+     * GET /api/v1/channels/customer/customer_uuid_here
+     *
+     * Response (200):
+     * {
+     *     "object": "list",
+     *     "data": [...],
+     *     "has_more": false,
+     *     "total_count": 2
+     * }
+     */
+    public function getCustomerChannels(string $customerUuid): JsonResponse
+    {
+        $result = $this->channelService->getChannelsForCustomer(
+            auth('sanctum')->user(), // Client from middleware
+            $customerUuid
+        );
+
+        return response()->json([
+            'object' => 'list',
+            'data' => ChannelResource::collection($result['data']),
+            'has_more' => $result['has_more'],
+            'total_count' => $result['total_count'],
+        ]);
+    }
 }

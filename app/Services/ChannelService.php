@@ -285,4 +285,26 @@ class ChannelService implements ChannelServiceInterface
     {
         return $this->channelRepository->paginateByClient($client, $limit, $startingAfter);
     }
+
+    /**
+     * Get channels for a specific customer.
+     *
+     * Retrieves all channels where the specified customer participates.
+     * Only returns channels belonging to the specified client.
+     *
+     * @param Client $client The client requesting the channels
+     * @param string $customerUuid Customer UUID to get channels for
+     * @return array{data: \Illuminate\Database\Eloquent\Collection, has_more: bool, total_count: int} Customer's channels
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException When customer not found or doesn't belong to client
+     *
+     * @example
+     * $result = $service->getChannelsForCustomer($client, 'customer-uuid-here');
+     * $channels = $result['data']; // Collection of channels
+     * $hasMore = $result['has_more']; // Boolean indicating if more results exist
+     * $totalCount = $result['total_count']; // Total number of channels for this customer
+     */
+    public function getChannelsForCustomer(Client $client, string $customerUuid): array
+    {
+        return $this->channelRepository->getChannelsForCustomer($client, $customerUuid);
+    }
 }

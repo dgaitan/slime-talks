@@ -168,17 +168,28 @@
 - [x] Returns proper JSON structure for each channel
 - [x] Handles default pagination parameters
 
-### Story 2.5: Get Customer Channels
+### Story 2.5: Get Customer Channels ✅ **COMPLETED**
 **As a** client application  
 **I want to** get all channels for a specific customer  
 **So that** I can show their conversation list  
 
 **Acceptance Criteria:**
-- [ ] GET `/api/v1/channels/customer/{customer_uuid}` endpoint exists
-- [ ] Returns channels where customer participates
-- [ ] Only returns channels for authenticated client
-- [ ] Returns 404 for non-existent customer
-- [ ] Returns 404 for customer from different client
+- [x] GET `/api/v1/channels/customer/{customer_uuid}` endpoint exists
+- [x] Returns channels where customer participates
+- [x] Only returns channels for authenticated client
+- [x] Returns 404 for non-existent customer
+- [x] Returns 404 for customer from different client
+
+**Test Cases:**
+- [x] Can get channels for a specific customer
+- [x] Only returns channels for authenticated client
+- [x] Returns 404 for non-existent customer
+- [x] Returns 404 for customer from different client
+- [x] Returns empty list when customer has no channels
+- [x] Requires authentication
+- [x] Requires public key header
+- [x] Validates origin domain
+- [x] Returns proper JSON structure for each channel
 
 ## Epic 3: Message Management
 

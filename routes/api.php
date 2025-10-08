@@ -17,5 +17,6 @@ Route::prefix('v1')->group(function () {
         Route::get('channels', [ChannelController::class, 'index']);
         Route::post('channels', [ChannelController::class, 'store']);
         Route::get('channels/{channel}', [ChannelController::class, 'show']);
+        Route::get('channels/customer/{customerUuid}', [ChannelController::class, 'getCustomerChannels']);
     });
 });

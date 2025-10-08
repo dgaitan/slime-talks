@@ -183,4 +183,44 @@ class ChannelRepository implements ChannelRepositoryInterface
             'total_count' => Channel::where('client_id', $client->id)->count(),
         ];
     }
+
+    /**
+     * Get channels for a specific customer.
+     *
+     * Retrieves all channels where the specified customer participates.
+     * Only returns channels belonging to the specified client.
+     * Results are ordered by creation date in descending order (newest first).
+     *
+     * @param Client $client Client instance to get channels for
+     * @param string $customerUuid Customer UUID to get channels for
+     * @return array{data: Collection, has_more: bool, total_count: int} Customer's channels
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException When customer not found or doesn't belong to client
+     *
+     * @example
+     * $result = $repository->getChannelsForCustomer($client, 'customer-uuid-here');
+     * $channels = $result['data']; // Collection of channels
+     * $hasMore = $result['has_more']; // Boolean indicating if more results exist
+     * $totalCount = $result['total_count']; // Total number of channels for this customer
+     */
+    public function getChannelsForCustomer(Client $client, string $customerUuid): array
+    {
+        // First, find the customer and ensure it belongs to the client
+        $customer = \App\Models\Customer::where('uuid', $customerUuid)
+            ->where('client_id', $client->id)
+            ->firstOrFail();
+
+        // Get channels where this customer participates
+        $channels = Channel::where('client_id', $client->id)
+            ->whereHas('customers', function ($query) use ($customer) {
+                $query->where('customers.id', $customer->id);
+            })
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return [
+            'data' => $channels,
+            'has_more' => false, // No pagination for customer channels
+            'total_count' => $channels->count(),
+        ];
+    }
 }
