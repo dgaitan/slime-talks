@@ -63,4 +63,6 @@ interface CustomerRepositoryInterface
      * @return bool True if deleted
      */
     public function delete(Customer $customer): bool;
+
+    public function findByEmailAndClient(string $email, Client $client): Customer;
 }

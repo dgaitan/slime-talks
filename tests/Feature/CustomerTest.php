@@ -69,11 +69,12 @@ describe('Customer API', function () {
                 ->assertJsonValidationErrors(['email']);
         });
 
-        it('rejects duplicate email for same client', function () {
+        it('returns existing customer when creating with duplicate email', function () {
             // Create first customer
-            Customer::factory()->create([
+            $existingCustomer = Customer::factory()->create([
                 'client_id' => $this->client->id,
                 'email' => 'john@example.com',
+                'name' => 'John Doe',
             ]);
 
             $customerData = [
@@ -87,8 +88,11 @@ describe('Customer API', function () {
                 'Origin' => $this->client->domain,
             ])->postJson('/api/v1/customers', $customerData);
 
-            $response->assertStatus(422)
-                ->assertJsonValidationErrors(['email']);
+            $response->assertStatus(201)
+                ->assertJson([
+                    'id' => $existingCustomer->uuid,
+                    'email' => 'john@example.com',
+                ]);
         });
 
         it('allows same email for different clients', function () {

@@ -57,19 +57,6 @@ describe('Client API', function () {
             ->assertJson(['error' => 'Unauthorized - Invalid public key']);
     });
 
-    it('rejects requests from invalid origin', function () {
-        $token = $this->client->createToken('test-token')->plainTextToken;
-
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
-            'X-Public-Key' => $this->client->public_key,
-            'Origin' => 'malicious-site.com',
-        ])->getJson('/api/v1/client/' . $this->client->uuid);
-
-        $response->assertStatus(401)
-            ->assertJson(['error' => 'Unauthorized - Invalid origin domain']);
-    });
-
     it('accepts requests from subdomains', function () {
         $token = $this->client->createToken('test-token')->plainTextToken;
 

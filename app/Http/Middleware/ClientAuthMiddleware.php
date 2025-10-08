@@ -9,6 +9,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Laravel\Sanctum\PersonalAccessToken;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -89,9 +90,9 @@ class ClientAuthMiddleware
             return response()->json(['error' => 'Unauthorized - Invalid public key'], 401);
         }
 
-        // Verify the token belongs to this client using Sanctum's built-in verification
-        $tokenRecord = $client->tokens()->where('name', 'test-token')->first();
-        if (!$tokenRecord) {
+        // Use Sanctum's built-in token verification
+        $tokenRecord = PersonalAccessToken::findToken($token);
+        if (!$tokenRecord || $tokenRecord->tokenable_id !== $client->id) {
             Log::warning('Authentication failed - Invalid token for client', [
                 'client_id' => $client->id,
                 'client_uuid' => $client->uuid,
@@ -102,72 +103,30 @@ class ClientAuthMiddleware
             return response()->json(['error' => 'Unauthorized - Invalid token for this client'], 401);
         }
 
-        // Check origin domain
-        $origin = $request->header('Origin') ?? $request->header('Host');
-        if ($origin) {
-            $allowedDomain = $client->domain;
-            
-            // Check if the origin matches the client's domain or is a subdomain
-            if (!$this->isValidOrigin($origin, $allowedDomain)) {
-                Log::warning('Authentication failed - Invalid origin domain', [
-                    'client_id' => $client->id,
-                    'client_uuid' => $client->uuid,
-                    'origin' => $origin,
-                    'allowed_domain' => $allowedDomain,
-                    'url' => $request->url(),
-                    'method' => $request->method(),
-                    'ip' => $request->ip(),
-                ]);
-                return response()->json(['error' => 'Unauthorized - Invalid origin domain'], 401);
-            }
+        // Check if token is expired
+        if ($tokenRecord->expires_at && $tokenRecord->expires_at->isPast()) {
+            Log::warning('Authentication failed - Token expired', [
+                'client_id' => $client->id,
+                'client_uuid' => $client->uuid,
+                'token_expires_at' => $tokenRecord->expires_at,
+                'url' => $request->url(),
+                'method' => $request->method(),
+                'ip' => $request->ip(),
+            ]);
+            return response()->json(['error' => 'Unauthorized - Token expired'], 401);
         }
 
-        // Set the authenticated client
+        // Set the authenticated client using Sanctum's proper authentication
         Auth::guard('sanctum')->setUser($client);
         $request->setUserResolver(function () use ($client) {
             return $client;
         });
 
+        // Update last used timestamp for the token
+        $tokenRecord->update(['last_used_at' => now()]);
+
         return $next($request);
     }
 
-    /**
-     * Check if the origin is valid for the client's domain.
-     * 
-     * Validates that the request origin matches the client's allowed domain.
-     * Supports both exact domain matches and subdomain matches for flexibility.
-     * Removes protocol and port information before comparison.
-     * 
-     * @param string $origin The request origin (from Origin or Host header)
-     * @param string $allowedDomain The client's allowed domain
-     * @return bool True if origin is valid, false otherwise
-     * 
-     * @example
-     * $isValid = $this->isValidOrigin('https://api.example.com:8080', 'example.com');
-     * // Returns true (subdomain match)
-     * 
-     * $isValid = $this->isValidOrigin('https://example.com', 'example.com');
-     * // Returns true (exact match)
-     * 
-     * $isValid = $this->isValidOrigin('https://other.com', 'example.com');
-     * // Returns false (no match)
-     */
-    private function isValidOrigin(string $origin, string $allowedDomain): bool
-    {
-        // Remove protocol if present
-        $origin = preg_replace('/^https?:\/\//', '', $origin);
-        $origin = preg_replace('/:\d+$/', '', $origin); // Remove port if present
 
-        // Check exact match
-        if ($origin === $allowedDomain) {
-            return true;
-        }
-
-        // Check if it's a subdomain
-        if (str_ends_with($origin, '.' . $allowedDomain)) {
-            return true;
-        }
-
-        return false;
-    }
 }

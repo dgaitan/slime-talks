@@ -23,7 +23,7 @@ class MessageResource extends JsonResource
      * Transform the resource into an array.
      *
      * Formats the message data for API responses following Stripe patterns.
-     * Includes all necessary message information with proper timestamps.
+     * Includes all necessary message information with proper timestamps and sender details.
      *
      * @param Request $request The HTTP request
      * @return array<string, mixed> Formatted message data
@@ -33,6 +33,8 @@ class MessageResource extends JsonResource
      * {
      *     "object": "message",
      *     "id": "message_uuid",
+     *     "channel_id": "channel_uuid",
+     *     "sender_id": "customer_uuid",
      *     "type": "text",
      *     "content": "Hello world!",
      *     "metadata": {"priority": "high"},
@@ -45,6 +47,8 @@ class MessageResource extends JsonResource
         return [
             'object' => 'message',
             'id' => $this->uuid,
+            'channel_id' => $this->channel->uuid,
+            'sender_id' => $this->sender->uuid,
             'type' => $this->type,
             'content' => $this->content,
             'metadata' => $this->metadata,

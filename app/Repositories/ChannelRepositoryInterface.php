@@ -78,4 +78,16 @@ interface ChannelRepositoryInterface
      * @return Collection Collection of customers in the channel
      */
     public function getCustomers(Channel $channel): Collection;
+
+    /**
+     * Find existing custom channel with same name.
+     * 
+     * Searches for a custom channel with the same name.
+     * Returns the existing channel if found, null otherwise.
+     * 
+     * @param string $name Channel name to search for
+     * @param Client $client Client instance to scope the search
+     * @return Channel|null Existing channel if found, null otherwise
+     */
+    public function findExistingCustomChannel(string $name, Client $client): ?Channel;
 }

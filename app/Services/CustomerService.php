@@ -64,7 +64,10 @@ class CustomerService implements CustomerServiceInterface
     {
         try {
             $this->validateCustomerData($data);
-            $this->ensureEmailUniqueness($client, $data['email']);
+            $exists = $this->ensureEmailUniqueness($client, $data['email'], false);
+            if ($exists) {
+                return $this->findByEmail($client, $data['email']);
+            }
             
             $customerData = [
                 'client_id' => $client->id,
@@ -120,6 +123,18 @@ class CustomerService implements CustomerServiceInterface
     public function getByUuid(Client $client, string $uuid): Customer
     {
         return $this->customerRepository->findByUuidAndClient($uuid, $client);
+    }
+
+    /**
+     * Find customer by email and client.
+     *
+     * @param Client $client
+     * @param string $email
+     * @return Customer
+     */
+    public function findByEmail(Client $client, string $email): Customer
+    {
+        return $this->customerRepository->findByEmailAndClient($email, $client);
     }
 
     /**
@@ -190,12 +205,18 @@ class CustomerService implements CustomerServiceInterface
      * $this->ensureEmailUniqueness($client, 'john@example.com');
      * // Throws ValidationException if email already exists for this client
      */
-    private function ensureEmailUniqueness(Client $client, string $email): void
+    private function ensureEmailUniqueness(Client $client, string $email, bool $raiseException = true): bool
     {
         if ($this->customerRepository->existsByEmailAndClient($email, $client)) {
             $validator = \Illuminate\Support\Facades\Validator::make([], []);
             $validator->errors()->add('email', 'Email already exists for this client');
-            throw new ValidationException($validator);
+            if ($raiseException) {
+                throw new ValidationException($validator);
+            }
+
+            return true;
         }
+
+        return false;
     }
 }

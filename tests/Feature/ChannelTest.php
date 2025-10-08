@@ -541,7 +541,7 @@ describe('Channel API', function () {
             ]);
         });
 
-        it('prevents duplicate custom channels with same name for same client', function () {
+        it('returns existing custom channel when creating duplicate with same name', function () {
             $customer1 = Customer::factory()->create(['client_id' => $this->client->id]);
             $customer2 = Customer::factory()->create(['client_id' => $this->client->id]);
 
@@ -554,21 +554,28 @@ describe('Channel API', function () {
                 'customer_uuids' => [$customer1->uuid, $customer2->uuid],
             ];
 
-            $this->withHeaders([
+            $firstResponse = $this->withHeaders([
                 'Authorization' => 'Bearer ' . $this->token,
                 'X-Public-Key' => $this->client->public_key,
                 'Origin' => $this->client->domain,
             ])->postJson('/api/v1/channels', $channelData);
 
-            // Try to create duplicate custom channel with same name
+            $firstResponse->assertStatus(201);
+            $firstChannelId = $firstResponse->json('id');
+
+            // Try to create duplicate custom channel with same name - should return existing
             $response = $this->withHeaders([
                 'Authorization' => 'Bearer ' . $this->token,
                 'X-Public-Key' => $this->client->public_key,
                 'Origin' => $this->client->domain,
             ])->postJson('/api/v1/channels', $channelData);
 
-            $response->assertStatus(422)
-                ->assertJsonValidationErrors(['name']);
+            $response->assertStatus(201)
+                ->assertJson([
+                    'id' => $firstChannelId,
+                    'name' => $channelName,
+                    'type' => 'custom',
+                ]);
         });
     });
 
@@ -673,23 +680,6 @@ describe('Channel API', function () {
 
             $response->assertStatus(401)
                 ->assertJson(['error' => 'Unauthorized - Missing X-Public-Key header']);
-        });
-
-        it('validates origin domain', function () {
-            $channel = Channel::factory()->create([
-                'client_id' => $this->client->id,
-                'type' => 'general',
-                'name' => 'general',
-            ]);
-
-            $response = $this->withHeaders([
-                'Authorization' => 'Bearer ' . $this->token,
-                'X-Public-Key' => $this->client->public_key,
-                'Origin' => 'unauthorized.com',
-            ])->getJson("/api/v1/channels/{$channel->uuid}");
-
-            $response->assertStatus(401)
-                ->assertJson(['error' => 'Unauthorized - Invalid origin domain']);
         });
 
         it('can retrieve custom channel', function () {
@@ -915,17 +905,6 @@ describe('Channel API', function () {
 
             $response->assertStatus(401)
                 ->assertJson(['error' => 'Unauthorized - Missing X-Public-Key header']);
-        });
-
-        it('validates origin domain', function () {
-            $response = $this->withHeaders([
-                'Authorization' => 'Bearer ' . $this->token,
-                'X-Public-Key' => $this->client->public_key,
-                'Origin' => 'unauthorized.com',
-            ])->getJson('/api/v1/channels');
-
-            $response->assertStatus(401)
-                ->assertJson(['error' => 'Unauthorized - Invalid origin domain']);
         });
 
         it('returns proper JSON structure for each channel', function () {
@@ -1162,19 +1141,6 @@ describe('Channel API', function () {
 
             $response->assertStatus(401)
                 ->assertJson(['error' => 'Unauthorized - Missing X-Public-Key header']);
-        });
-
-        it('validates origin domain', function () {
-            $customer = Customer::factory()->create(['client_id' => $this->client->id]);
-
-            $response = $this->withHeaders([
-                'Authorization' => 'Bearer ' . $this->token,
-                'X-Public-Key' => $this->client->public_key,
-                'Origin' => 'unauthorized.com',
-            ])->getJson("/api/v1/channels/customer/{$customer->uuid}");
-
-            $response->assertStatus(401)
-                ->assertJson(['error' => 'Unauthorized - Invalid origin domain']);
         });
 
         it('returns proper JSON structure for each channel', function () {
