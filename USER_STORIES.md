@@ -193,27 +193,34 @@
 
 ## Epic 3: Message Management
 
-### Story 3.1: Send Message
+### Story 3.1: Send Message ✅ **COMPLETED**
 **As a** client application  
 **I want to** send messages in channels  
 **So that** customers can communicate  
 
 **Acceptance Criteria:**
-- [ ] POST `/api/v1/messages` endpoint exists
-- [ ] Sends message to specified channel
-- [ ] Sender must be participant in channel
-- [ ] Message gets unique UUID
-- [ ] Supports different message types (text, image, file)
-- [ ] Returns message data with UUID
-- [ ] Timestamps message creation
+- [x] POST `/api/v1/messages` endpoint exists
+- [x] Sends message to specified channel
+- [x] Sender must be participant in channel
+- [x] Message gets unique UUID
+- [x] Supports different message types (text, image, file)
+- [x] Returns message data with UUID
+- [x] Timestamps message creation
 
 **Test Cases:**
-- [ ] Can send text message
-- [ ] Can send message with metadata
-- [ ] Rejects if sender not in channel
-- [ ] Rejects if channel doesn't exist
-- [ ] Rejects if channel belongs to different client
-- [ ] Requires authentication
+- [x] Can send text message
+- [x] Can send message with metadata
+- [x] Rejects if sender not in channel
+- [x] Rejects if channel doesn't exist
+- [x] Rejects if channel belongs to different client
+- [x] Requires authentication
+- [x] Requires public key header
+- [x] Validates origin domain
+- [x] Validates required fields
+- [x] Validates message type
+- [x] Validates content is not empty
+- [x] Supports different message types
+- [x] Returns proper JSON structure
 
 ### Story 3.2: Retrieve Channel Messages
 **As a** client application  
