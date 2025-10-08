@@ -222,18 +222,31 @@
 - [x] Supports different message types
 - [x] Returns proper JSON structure
 
-### Story 3.2: Retrieve Channel Messages
+### Story 3.2: Retrieve Channel Messages ✅ **COMPLETED**
 **As a** client application  
 **I want to** retrieve messages from a channel  
 **So that** I can display conversation history  
 
 **Acceptance Criteria:**
-- [ ] GET `/api/v1/messages/channel/{channel_uuid}` endpoint exists
-- [ ] Returns paginated list of messages
-- [ ] Messages ordered by creation time (oldest first)
-- [ ] Only returns messages from authenticated client's channels
-- [ ] Supports pagination parameters
-- [ ] Returns total count
+- [x] GET `/api/v1/messages/channel/{channel_uuid}` endpoint exists
+- [x] Returns paginated list of messages
+- [x] Messages ordered by creation time (oldest first)
+- [x] Only returns messages from authenticated client's channels
+- [x] Supports pagination parameters
+- [x] Returns total count
+
+**Test Cases:**
+- [x] Can retrieve messages from a channel
+- [x] Returns empty list when channel has no messages
+- [x] Returns 404 for non-existent channel
+- [x] Returns 404 for channel from different client
+- [x] Supports pagination parameters
+- [x] Supports cursor-based pagination with starting_after
+- [x] Requires authentication
+- [x] Requires public key header
+- [x] Validates origin domain
+- [x] Returns proper JSON structure for each message
+- [x] Handles default pagination parameters
 
 ### Story 3.3: Retrieve Customer Messages
 **As a** client application  

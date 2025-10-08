@@ -119,4 +119,48 @@ class MessageService implements MessageServiceInterface
             ]);
         }
     }
+
+    /**
+     * Get messages for a channel.
+     *
+     * Validates that the channel belongs to the authenticated client
+     * and returns paginated messages ordered by creation time.
+     *
+     * @param string $channelUuid Channel UUID
+     * @param int $clientId Client ID
+     * @param int $limit Number of messages per page
+     * @param string|null $startingAfter Message UUID to start after
+     * @return array{data: \Illuminate\Database\Eloquent\Collection, has_more: bool, total_count: int}
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If channel not found
+     */
+    public function getChannelMessages(string $channelUuid, int $clientId, int $limit = 10, ?string $startingAfter = null): array
+    {
+        try {
+            // Find channel and validate it belongs to client
+            $channel = $this->messageRepository->findChannelByUuidAndClient($channelUuid, $clientId);
+
+            if (!$channel) {
+                Log::warning('Channel messages retrieval failed: Channel not found or does not belong to client', [
+                    'channel_uuid' => $channelUuid,
+                    'client_id' => $clientId,
+                ]);
+
+                throw new \Illuminate\Database\Eloquent\ModelNotFoundException('Channel not found');
+            }
+
+            // Get messages for the channel
+            return $this->messageRepository->getMessagesForChannel($channel->id, $clientId, $limit, $startingAfter);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            Log::error('Unexpected error retrieving channel messages', [
+                'error' => $e->getMessage(),
+                'channel_uuid' => $channelUuid,
+                'client_id' => $clientId,
+            ]);
+
+            throw new \Illuminate\Database\Eloquent\ModelNotFoundException('Channel not found');
+        }
+    }
 }

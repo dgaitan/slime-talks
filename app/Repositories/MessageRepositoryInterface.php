@@ -61,4 +61,15 @@ interface MessageRepositoryInterface
      * @return \App\Models\Customer|null The customer or null if not found
      */
     public function findCustomerByUuidAndClient(string $uuid, int $clientId): ?\App\Models\Customer;
+
+    /**
+     * Get messages for a channel with pagination.
+     *
+     * @param int $channelId Channel ID
+     * @param int $clientId Client ID
+     * @param int $limit Number of messages per page
+     * @param string|null $startingAfter Message UUID to start after
+     * @return array{data: \Illuminate\Database\Eloquent\Collection, has_more: bool, total_count: int}
+     */
+    public function getMessagesForChannel(int $channelId, int $clientId, int $limit = 10, ?string $startingAfter = null): array;
 }

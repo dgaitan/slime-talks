@@ -382,4 +382,351 @@ describe('Message API', function () {
                 ]);
         });
     });
+
+    describe('Retrieve Channel Messages', function () {
+        it('can retrieve messages from a channel', function () {
+            // Create customers and channel
+            $customer1 = Customer::factory()->create(['client_id' => $this->client->id]);
+            $customer2 = Customer::factory()->create(['client_id' => $this->client->id]);
+            
+            $channel = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            // Attach customers to channel
+            $channel->customers()->attach([$customer1->id, $customer2->id]);
+
+            // Create some messages
+            $message1 = Message::factory()->create([
+                'client_id' => $this->client->id,
+                'channel_id' => $channel->id,
+                'sender_id' => $customer1->id,
+                'content' => 'First message',
+            ]);
+
+            $message2 = Message::factory()->create([
+                'client_id' => $this->client->id,
+                'channel_id' => $channel->id,
+                'sender_id' => $customer2->id,
+                'content' => 'Second message',
+            ]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/messages/channel/{$channel->uuid}");
+
+            $response->assertStatus(200)
+                ->assertJsonStructure([
+                    'object',
+                    'data' => [
+                        '*' => [
+                            'object',
+                            'id',
+                            'type',
+                            'content',
+                            'metadata',
+                            'created',
+                            'livemode',
+                        ]
+                    ],
+                    'has_more',
+                    'total_count',
+                ])
+                ->assertJson([
+                    'object' => 'list',
+                    'has_more' => false,
+                    'total_count' => 2,
+                ]);
+
+            // Verify messages are ordered by creation time (oldest first)
+            $messages = $response->json('data');
+            expect($messages)->toHaveCount(2);
+            expect($messages[0]['content'])->toBe('First message');
+            expect($messages[1]['content'])->toBe('Second message');
+        });
+
+        it('returns empty list when channel has no messages', function () {
+            $customer = Customer::factory()->create(['client_id' => $this->client->id]);
+            
+            $channel = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            // Attach customer to channel
+            $channel->customers()->attach([$customer->id]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/messages/channel/{$channel->uuid}");
+
+            $response->assertStatus(200)
+                ->assertJson([
+                    'object' => 'list',
+                    'data' => [],
+                    'has_more' => false,
+                    'total_count' => 0,
+                ]);
+        });
+
+        it('returns 404 for non-existent channel', function () {
+            $nonExistentChannelUuid = \Illuminate\Support\Str::uuid();
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/messages/channel/{$nonExistentChannelUuid}");
+
+            $response->assertStatus(404);
+        });
+
+        it('returns 404 for channel from different client', function () {
+            // Create another client and channel
+            $otherClient = Client::factory()->create([
+                'name' => 'Other Client',
+                'domain' => 'other.com',
+                'public_key' => 'other-public-key',
+            ]);
+
+            $otherChannel = Channel::factory()->create([
+                'client_id' => $otherClient->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/messages/channel/{$otherChannel->uuid}");
+
+            $response->assertStatus(404);
+        });
+
+        it('supports pagination parameters', function () {
+            // Create customers and channel
+            $customer1 = Customer::factory()->create(['client_id' => $this->client->id]);
+            $customer2 = Customer::factory()->create(['client_id' => $this->client->id]);
+            
+            $channel = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            // Attach customers to channel
+            $channel->customers()->attach([$customer1->id, $customer2->id]);
+
+            // Create multiple messages
+            for ($i = 1; $i <= 5; $i++) {
+                Message::factory()->create([
+                    'client_id' => $this->client->id,
+                    'channel_id' => $channel->id,
+                    'sender_id' => $customer1->id,
+                    'content' => "Message {$i}",
+                ]);
+            }
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/messages/channel/{$channel->uuid}?limit=3");
+
+            $response->assertStatus(200)
+                ->assertJson([
+                    'object' => 'list',
+                    'has_more' => true,
+                    'total_count' => 5,
+                ]);
+
+            $messages = $response->json('data');
+            expect($messages)->toHaveCount(3);
+        });
+
+        it('supports cursor-based pagination with starting_after', function () {
+            // Create customers and channel
+            $customer1 = Customer::factory()->create(['client_id' => $this->client->id]);
+            $customer2 = Customer::factory()->create(['client_id' => $this->client->id]);
+            
+            $channel = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            // Attach customers to channel
+            $channel->customers()->attach([$customer1->id, $customer2->id]);
+
+            // Create messages with distinct timestamps
+            $message1 = Message::factory()->create([
+                'client_id' => $this->client->id,
+                'channel_id' => $channel->id,
+                'sender_id' => $customer1->id,
+                'content' => 'First message',
+            ]);
+            usleep(1000); // Ensure different timestamps
+
+            $message2 = Message::factory()->create([
+                'client_id' => $this->client->id,
+                'channel_id' => $channel->id,
+                'sender_id' => $customer1->id,
+                'content' => 'Second message',
+            ]);
+            usleep(1000);
+
+            $message3 = Message::factory()->create([
+                'client_id' => $this->client->id,
+                'channel_id' => $channel->id,
+                'sender_id' => $customer1->id,
+                'content' => 'Third message',
+            ]);
+
+            // Get first page
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/messages/channel/{$channel->uuid}?limit=2");
+
+            $response->assertStatus(200);
+            $firstPageMessages = $response->json('data');
+            expect($firstPageMessages)->toHaveCount(2);
+
+            // Get second page using starting_after
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/messages/channel/{$channel->uuid}?limit=2&starting_after={$firstPageMessages[1]['id']}");
+
+            $response->assertStatus(200);
+            $secondPageMessages = $response->json('data');
+            expect($secondPageMessages)->toHaveCount(1);
+            expect($secondPageMessages[0]['content'])->toBe('Third message');
+        });
+
+        it('requires authentication', function () {
+            $channelUuid = \Illuminate\Support\Str::uuid();
+
+            $response = $this->getJson("/api/v1/messages/channel/{$channelUuid}");
+
+            $response->assertStatus(401)
+                ->assertJson(['error' => 'Unauthorized - Missing or invalid Authorization header']);
+        });
+
+        it('requires public key header', function () {
+            $channelUuid = \Illuminate\Support\Str::uuid();
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/messages/channel/{$channelUuid}");
+
+            $response->assertStatus(401)
+                ->assertJson(['error' => 'Unauthorized - Missing X-Public-Key header']);
+        });
+
+        it('validates origin domain', function () {
+            $channelUuid = \Illuminate\Support\Str::uuid();
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => 'unauthorized.com',
+            ])->getJson("/api/v1/messages/channel/{$channelUuid}");
+
+            $response->assertStatus(401)
+                ->assertJson(['error' => 'Unauthorized - Invalid origin domain']);
+        });
+
+        it('returns proper JSON structure for each message', function () {
+            // Create customers and channel
+            $customer1 = Customer::factory()->create(['client_id' => $this->client->id]);
+            $customer2 = Customer::factory()->create(['client_id' => $this->client->id]);
+            
+            $channel = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            // Attach customers to channel
+            $channel->customers()->attach([$customer1->id, $customer2->id]);
+
+            // Create a message
+            Message::factory()->create([
+                'client_id' => $this->client->id,
+                'channel_id' => $channel->id,
+                'sender_id' => $customer1->id,
+                'content' => 'Test message',
+            ]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/messages/channel/{$channel->uuid}");
+
+            $response->assertStatus(200);
+            $messages = $response->json('data');
+            expect($messages)->toHaveCount(1);
+            
+            $message = $messages[0];
+            expect($message)->toHaveKeys([
+                'object',
+                'id',
+                'type',
+                'content',
+                'metadata',
+                'created',
+                'livemode',
+            ]);
+            expect($message['object'])->toBe('message');
+        });
+
+        it('handles default pagination parameters', function () {
+            // Create customers and channel
+            $customer1 = Customer::factory()->create(['client_id' => $this->client->id]);
+            $customer2 = Customer::factory()->create(['client_id' => $this->client->id]);
+            
+            $channel = Channel::factory()->create([
+                'client_id' => $this->client->id,
+                'type' => 'general',
+                'name' => 'general',
+            ]);
+
+            // Attach customers to channel
+            $channel->customers()->attach([$customer1->id, $customer2->id]);
+
+            // Create a message
+            Message::factory()->create([
+                'client_id' => $this->client->id,
+                'channel_id' => $channel->id,
+                'sender_id' => $customer1->id,
+                'content' => 'Test message',
+            ]);
+
+            $response = $this->withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'X-Public-Key' => $this->client->public_key,
+                'Origin' => $this->client->domain,
+            ])->getJson("/api/v1/messages/channel/{$channel->uuid}");
+
+            $response->assertStatus(200)
+                ->assertJson([
+                    'object' => 'list',
+                    'has_more' => false,
+                    'total_count' => 1,
+                ]);
+        });
+    });
 });

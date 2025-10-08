@@ -27,4 +27,16 @@ interface MessageServiceInterface
      * @throws \Illuminate\Validation\ValidationException If validation fails
      */
     public function sendMessage(array $data, int $clientId): Message;
+
+    /**
+     * Get messages for a channel.
+     *
+     * @param string $channelUuid Channel UUID
+     * @param int $clientId Client ID
+     * @param int $limit Number of messages per page
+     * @param string|null $startingAfter Message UUID to start after
+     * @return array{data: \Illuminate\Database\Eloquent\Collection, has_more: bool, total_count: int}
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If channel not found
+     */
+    public function getChannelMessages(string $channelUuid, int $clientId, int $limit = 10, ?string $startingAfter = null): array;
 }
