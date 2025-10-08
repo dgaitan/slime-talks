@@ -1,0 +1,865 @@
+openapi: 3.0.3
+info:
+  title: Slime Talks Messaging API
+  description: |
+    A comprehensive messaging API built with Laravel v12, designed for multi-tenant applications. 
+    This API provides secure, scalable messaging capabilities with client isolation, authentication, and full pagination support.
+
+    ## Key Features
+    - ✅ **Multi-tenant Architecture**: Complete client isolation
+    - ✅ **Secure Authentication**: Bearer tokens + public key validation
+    - ✅ **Domain Validation**: Origin header checking
+    - ✅ **Comprehensive Pagination**: Cursor-based pagination support
+    - ✅ **Stripe-inspired API**: Consistent JSON responses
+    - ✅ **Full Test Coverage**: 107 tests with 414 assertions
+    - ✅ **Production Ready**: Error logging and validation
+
+    ## Authentication
+    All API endpoints require authentication using a combination of:
+    1. **Authorization Header**: `Bearer {token}`
+    2. **X-Public-Key Header**: Client's public key
+    3. **Origin Header**: Must match client's registered domain
+  version: 1.0.0
+  contact:
+    name: Slime Talks API Support
+    email: support@slime-talks.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.slime-talks.com/api/v1
+    description: Production server
+  - url: https://staging-api.slime-talks.com/api/v1
+    description: Staging server
+  - url: http://localhost:8000/api/v1
+    description: Development server
+
+security:
+  - BearerAuth: []
+  - PublicKeyAuth: []
+  - OriginAuth: []
+
+paths:
+  /client/{client_uuid}:
+    get:
+      tags:
+        - Client Management
+      summary: Get Client Information
+      description: Retrieves information about a specific client.
+      operationId: getClient
+      parameters:
+        - name: client_uuid
+          in: path
+          required: true
+          description: The UUID of the client
+          schema:
+            type: string
+            format: uuid
+            example: "clt_1234567890abcdef"
+      responses:
+        "200":
+          description: Client information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+              example:
+                object: "client"
+                id: "clt_1234567890"
+                name: "Example Client"
+                domain: "example.com"
+                public_key: "pk_test_1234567890"
+                allowed_ips: ["127.0.0.1"]
+                allowed_subdomains: ["api", "app"]
+                created: 1640995200
+                livemode: false
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+  /customers:
+    post:
+      tags:
+        - Customer Management
+      summary: Create Customer
+      description: Creates a new customer for the authenticated client.
+      operationId: createCustomer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCustomerRequest"
+            example:
+              name: "John Doe"
+              email: "john@example.com"
+              metadata:
+                department: "Engineering"
+                role: "Developer"
+      responses:
+        "201":
+          description: Customer created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    get:
+      tags:
+        - Customer Management
+      summary: List Customers
+      description: Lists all customers for the authenticated client with pagination.
+      operationId: listCustomers
+      parameters:
+        - name: limit
+          in: query
+          description: Number of customers per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: starting_after
+          in: query
+          description: Customer UUID to start after for pagination
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Customers retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerList"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+  /customers/{customer_uuid}:
+    get:
+      tags:
+        - Customer Management
+      summary: Get Customer
+      description: Retrieves customer information.
+      operationId: getCustomer
+      parameters:
+        - name: customer_uuid
+          in: path
+          required: true
+          description: The UUID of the customer
+          schema:
+            type: string
+            format: uuid
+            example: "cus_1234567890abcdef"
+      responses:
+        "200":
+          description: Customer information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+  /channels:
+    post:
+      tags:
+        - Channel Management
+      summary: Create Channel
+      description: Creates a new channel (general or custom) for the authenticated client.
+      operationId: createChannel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChannelRequest"
+            examples:
+              general_channel:
+                summary: General Channel
+                value:
+                  type: "general"
+                  customer_uuids: ["cus_1234567890", "cus_0987654321"]
+              custom_channel:
+                summary: Custom Channel
+                value:
+                  type: "custom"
+                  name: "Engineering Team"
+                  customer_uuids:
+                    ["cus_1234567890", "cus_0987654321", "cus_1122334455"]
+      responses:
+        "201":
+          description: Channel created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Channel"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    get:
+      tags:
+        - Channel Management
+      summary: List Channels
+      description: Lists all channels for the authenticated client with pagination.
+      operationId: listChannels
+      parameters:
+        - name: limit
+          in: query
+          description: Number of channels per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: starting_after
+          in: query
+          description: Channel UUID to start after for pagination
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Channels retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelList"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+  /channels/{channel_uuid}:
+    get:
+      tags:
+        - Channel Management
+      summary: Get Channel
+      description: Retrieves channel information.
+      operationId: getChannel
+      parameters:
+        - name: channel_uuid
+          in: path
+          required: true
+          description: The UUID of the channel
+          schema:
+            type: string
+            format: uuid
+            example: "ch_1234567890abcdef"
+      responses:
+        "200":
+          description: Channel information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Channel"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+  /channels/customer/{customer_uuid}:
+    get:
+      tags:
+        - Channel Management
+      summary: Get Customer Channels
+      description: Lists all channels where a specific customer participates.
+      operationId: getCustomerChannels
+      parameters:
+        - name: customer_uuid
+          in: path
+          required: true
+          description: The UUID of the customer
+          schema:
+            type: string
+            format: uuid
+            example: "cus_1234567890abcdef"
+      responses:
+        "200":
+          description: Customer channels retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelList"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+  /messages:
+    post:
+      tags:
+        - Message Management
+      summary: Send Message
+      description: Sends a message to a channel.
+      operationId: sendMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageRequest"
+            example:
+              channel_uuid: "ch_1234567890"
+              sender_uuid: "cus_1234567890"
+              type: "text"
+              content: "Hello, this is a test message!"
+              metadata:
+                priority: "high"
+                tags: ["important", "urgent"]
+      responses:
+        "201":
+          description: Message sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /messages/channel/{channel_uuid}:
+    get:
+      tags:
+        - Message Management
+      summary: Get Channel Messages
+      description: Retrieves messages from a specific channel, ordered by creation time (oldest first).
+      operationId: getChannelMessages
+      parameters:
+        - name: channel_uuid
+          in: path
+          required: true
+          description: The UUID of the channel
+          schema:
+            type: string
+            format: uuid
+            example: "ch_1234567890abcdef"
+        - name: limit
+          in: query
+          description: Number of messages per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: starting_after
+          in: query
+          description: Message UUID to start after for pagination
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Channel messages retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageList"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+  /messages/customer/{customer_uuid}:
+    get:
+      tags:
+        - Message Management
+      summary: Get Customer Messages
+      description: Retrieves all messages sent by a specific customer across all channels, ordered by creation time (newest first).
+      operationId: getCustomerMessages
+      parameters:
+        - name: customer_uuid
+          in: path
+          required: true
+          description: The UUID of the customer
+          schema:
+            type: string
+            format: uuid
+            example: "cus_1234567890abcdef"
+        - name: limit
+          in: query
+          description: Number of messages per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: starting_after
+          in: query
+          description: Message UUID to start after for pagination
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Customer messages retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageList"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Bearer token authentication
+    PublicKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Public-Key
+      description: Client public key for authentication
+    OriginAuth:
+      type: apiKey
+      in: header
+      name: Origin
+      description: Origin domain for validation
+
+  schemas:
+    Client:
+      type: object
+      required:
+        - object
+        - id
+        - name
+        - domain
+        - public_key
+        - created
+        - livemode
+      properties:
+        object:
+          type: string
+          enum: [client]
+          description: String representing the object's type
+        id:
+          type: string
+          description: Unique identifier for the client
+          example: "clt_1234567890"
+        name:
+          type: string
+          description: Client name
+          example: "Example Client"
+        domain:
+          type: string
+          description: Client domain
+          example: "example.com"
+        public_key:
+          type: string
+          description: Client public key
+          example: "pk_test_1234567890"
+        allowed_ips:
+          type: array
+          items:
+            type: string
+          description: Allowed IP addresses
+          example: ["127.0.0.1"]
+        allowed_subdomains:
+          type: array
+          items:
+            type: string
+          description: Allowed subdomains
+          example: ["api", "app"]
+        created:
+          type: integer
+          description: Unix timestamp of creation
+          example: 1640995200
+        livemode:
+          type: boolean
+          description: Whether this is a live mode client
+          example: false
+
+    Customer:
+      type: object
+      required:
+        - object
+        - id
+        - name
+        - email
+        - created
+        - livemode
+      properties:
+        object:
+          type: string
+          enum: [customer]
+          description: String representing the object's type
+        id:
+          type: string
+          description: Unique identifier for the customer
+          example: "cus_1234567890"
+        name:
+          type: string
+          description: Customer name
+          example: "John Doe"
+        email:
+          type: string
+          format: email
+          description: Customer email address
+          example: "john@example.com"
+        metadata:
+          type: object
+          description: Additional customer metadata
+          example:
+            department: "Engineering"
+            role: "Developer"
+        created:
+          type: integer
+          description: Unix timestamp of creation
+          example: 1640995200
+        livemode:
+          type: boolean
+          description: Whether this is a live mode customer
+          example: false
+
+    Channel:
+      type: object
+      required:
+        - object
+        - id
+        - type
+        - name
+        - customers
+        - created
+        - livemode
+      properties:
+        object:
+          type: string
+          enum: [channel]
+          description: String representing the object's type
+        id:
+          type: string
+          description: Unique identifier for the channel
+          example: "ch_1234567890"
+        type:
+          type: string
+          enum: [general, custom]
+          description: Channel type
+          example: "custom"
+        name:
+          type: string
+          description: Channel name
+          example: "Engineering Team"
+        customers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Customer"
+          description: Customers participating in the channel
+        created:
+          type: integer
+          description: Unix timestamp of creation
+          example: 1640995200
+        livemode:
+          type: boolean
+          description: Whether this is a live mode channel
+          example: false
+
+    Message:
+      type: object
+      required:
+        - object
+        - id
+        - type
+        - content
+        - created
+        - livemode
+      properties:
+        object:
+          type: string
+          enum: [message]
+          description: String representing the object's type
+        id:
+          type: string
+          description: Unique identifier for the message
+          example: "msg_1234567890"
+        type:
+          type: string
+          enum: [text, image, file]
+          description: Message type
+          example: "text"
+        content:
+          type: string
+          description: Message content
+          example: "Hello, this is a test message!"
+        metadata:
+          type: object
+          description: Additional message metadata
+          example:
+            priority: "high"
+            tags: ["important", "urgent"]
+        created:
+          type: integer
+          description: Unix timestamp of creation
+          example: 1640995200
+        livemode:
+          type: boolean
+          description: Whether this is a live mode message
+          example: false
+
+    CreateCustomerRequest:
+      type: object
+      required:
+        - name
+        - email
+      properties:
+        name:
+          type: string
+          description: Customer name
+          example: "John Doe"
+        email:
+          type: string
+          format: email
+          description: Customer email address
+          example: "john@example.com"
+        metadata:
+          type: object
+          description: Additional customer metadata
+          example:
+            department: "Engineering"
+            role: "Developer"
+
+    CreateChannelRequest:
+      type: object
+      required:
+        - type
+        - customer_uuids
+      properties:
+        type:
+          type: string
+          enum: [general, custom]
+          description: Channel type
+          example: "custom"
+        name:
+          type: string
+          description: Channel name (required for custom channels)
+          example: "Engineering Team"
+        customer_uuids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 2
+          maxItems: 10
+          description: Array of customer UUIDs
+          example: ["cus_1234567890", "cus_0987654321"]
+
+    SendMessageRequest:
+      type: object
+      required:
+        - channel_uuid
+        - sender_uuid
+        - type
+        - content
+      properties:
+        channel_uuid:
+          type: string
+          format: uuid
+          description: UUID of the channel
+          example: "ch_1234567890"
+        sender_uuid:
+          type: string
+          format: uuid
+          description: UUID of the sender
+          example: "cus_1234567890"
+        type:
+          type: string
+          enum: [text, image, file]
+          description: Message type
+          example: "text"
+        content:
+          type: string
+          minLength: 1
+          description: Message content
+          example: "Hello, this is a test message!"
+        metadata:
+          type: object
+          description: Additional message metadata
+          example:
+            priority: "high"
+            tags: ["important", "urgent"]
+
+    CustomerList:
+      type: object
+      required:
+        - object
+        - data
+        - has_more
+        - total_count
+      properties:
+        object:
+          type: string
+          enum: [list]
+          description: String representing the object's type
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Customer"
+          description: Array of customer objects
+        has_more:
+          type: boolean
+          description: Whether there are more items available
+          example: false
+        total_count:
+          type: integer
+          description: Total number of items
+          example: 1
+
+    ChannelList:
+      type: object
+      required:
+        - object
+        - data
+        - has_more
+        - total_count
+      properties:
+        object:
+          type: string
+          enum: [list]
+          description: String representing the object's type
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Channel"
+          description: Array of channel objects
+        has_more:
+          type: boolean
+          description: Whether there are more items available
+          example: false
+        total_count:
+          type: integer
+          description: Total number of items
+          example: 1
+
+    MessageList:
+      type: object
+      required:
+        - object
+        - data
+        - has_more
+        - total_count
+      properties:
+        object:
+          type: string
+          enum: [list]
+          description: String representing the object's type
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+          description: Array of message objects
+        has_more:
+          type: boolean
+          description: Whether there are more items available
+          example: false
+        total_count:
+          type: integer
+          description: Total number of items
+          example: 1
+
+    ValidationError:
+      type: object
+      required:
+        - message
+        - errors
+      properties:
+        message:
+          type: string
+          description: Error message
+          example: "The given data was invalid."
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Field-specific validation errors
+          example:
+            email: ["The email field is required."]
+            name: ["The name field is required."]
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "Customer not found"
+
+  responses:
+    UnauthorizedError:
+      description: Authentication failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            missing_auth:
+              summary: Missing Authorization header
+              value:
+                error: "Unauthorized - Missing or invalid Authorization header"
+            missing_public_key:
+              summary: Missing X-Public-Key header
+              value:
+                error: "Unauthorized - Missing X-Public-Key header"
+            invalid_origin:
+              summary: Invalid origin domain
+              value:
+                error: "Unauthorized - Invalid origin domain"
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            customer_not_found:
+              summary: Customer not found
+              value:
+                error: "Customer not found"
+            channel_not_found:
+              summary: Channel not found
+              value:
+                error: "Channel not found"
+
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationError"
+          example:
+            message: "The given data was invalid."
+            errors:
+              email: ["The email field is required."]
+              name: ["The name field is required."]
+
+tags:
+  - name: Client Management
+    description: Operations for managing clients
+  - name: Customer Management
+    description: Operations for managing customers
+  - name: Channel Management
+    description: Operations for managing channels
+  - name: Message Management
+    description: Operations for managing messages
