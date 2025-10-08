@@ -48,7 +48,7 @@ class CreateChannelRequest extends FormRequest
 
         // Add name validation for custom channels
         if ($this->input('type') === 'custom') {
-            $rules['name'] = 'required|string|max:255|unique:channels,name,NULL,id,client_id,' . auth('sanctum')->id();
+            $rules['name'] = 'required|string|max:255';
         }
 
         return $rules;
@@ -76,7 +76,6 @@ class CreateChannelRequest extends FormRequest
             'name.required' => 'Channel name is required for custom channels',
             'name.string' => 'Channel name must be a string',
             'name.max' => 'Channel name cannot exceed 255 characters',
-            'name.unique' => 'A channel with this name already exists for your client',
         ];
     }
 }

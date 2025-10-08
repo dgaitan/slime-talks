@@ -76,7 +76,21 @@ class ChannelService implements ChannelServiceInterface
             
             // For custom channels, check if general channel exists and create it if not
             if ($data['type'] === 'custom') {
-                $this->ensureGeneralChannelExists($customerIds, $client);
+                // $this->ensureGeneralChannelExists($customerIds, $client);
+                
+                // Check if a custom channel with the same name already exists
+                $existingChannel = $this->channelRepository->findExistingCustomChannel($data['name'], $client);
+                if ($existingChannel) {
+                    Log::info('Returning existing custom channel instead of creating duplicate', [
+                        'client_id' => $client->id,
+                        'client_uuid' => $client->uuid,
+                        'channel_id' => $existingChannel->id,
+                        'channel_uuid' => $existingChannel->uuid,
+                        'channel_name' => $existingChannel->name,
+                        'customer_count' => $existingChannel->customers->count(),
+                    ]);
+                    return $existingChannel;
+                }
             }
             
             // Create the channel

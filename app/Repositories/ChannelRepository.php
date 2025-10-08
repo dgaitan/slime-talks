@@ -223,4 +223,29 @@ class ChannelRepository implements ChannelRepositoryInterface
             'total_count' => $channels->count(),
         ];
     }
+
+    /**
+     * Find existing custom channel with same name.
+     *
+     * Searches for a custom channel with the same name.
+     * Returns the existing channel if found, null otherwise.
+     *
+     * @param string $name Channel name to search for
+     * @param Client $client Client instance to scope the search
+     * @return Channel|null Existing channel if found, null otherwise
+     *
+     * @example
+     * $existingChannel = $repository->findExistingCustomChannel('Project Discussion', $client);
+     * if ($existingChannel) {
+     *     // Channel with same name already exists
+     * }
+     */
+    public function findExistingCustomChannel(string $name, Client $client): ?Channel
+    {
+        // Find the first custom channel for the client with the same name
+        return Channel::where('client_id', $client->id)
+            ->where('type', 'custom')
+            ->where('name', $name)
+            ->first();
+    }
 }

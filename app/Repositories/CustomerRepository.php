@@ -75,6 +75,20 @@ class CustomerRepository implements CustomerRepositoryInterface
     }
 
     /**
+     * Find customer by email and client.
+     *
+     * @param string $email
+     * @param Client $client
+     * @return Customer
+     */
+    public function findByEmailAndClient(string $email, Client $client): Customer
+    {
+        return Customer::where('email', $email)
+            ->where('client_id', $client->id)
+            ->firstOrFail();
+    }
+
+    /**
      * Check if email exists for client.
      * 
      * Verifies if an email address already exists for a specific client.

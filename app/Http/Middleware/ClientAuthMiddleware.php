@@ -9,6 +9,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Laravel\Sanctum\PersonalAccessToken;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -89,8 +90,8 @@ class ClientAuthMiddleware
             return response()->json(['error' => 'Unauthorized - Invalid public key'], 401);
         }
 
-        // Verify the token belongs to this client using Sanctum's built-in verification
-        $tokenRecord = $client->tokens()->where('name', 'test-token')->first();
+        // Use Sanctum's built-in token verification
+        $tokenRecord = PersonalAccessToken::findToken($token);
         if (!$tokenRecord) {
             Log::warning('Authentication failed - Invalid token for client', [
                 'client_id' => $client->id,
@@ -103,30 +104,33 @@ class ClientAuthMiddleware
         }
 
         // Check origin domain
-        $origin = $request->header('Origin') ?? $request->header('Host');
-        if ($origin) {
-            $allowedDomain = $client->domain;
+        // $origin = $request->header('Origin') ?? $request->header('Host');
+        // if ($origin) {
+        //     $allowedDomain = $client->domain;
             
-            // Check if the origin matches the client's domain or is a subdomain
-            if (!$this->isValidOrigin($origin, $allowedDomain)) {
-                Log::warning('Authentication failed - Invalid origin domain', [
-                    'client_id' => $client->id,
-                    'client_uuid' => $client->uuid,
-                    'origin' => $origin,
-                    'allowed_domain' => $allowedDomain,
-                    'url' => $request->url(),
-                    'method' => $request->method(),
-                    'ip' => $request->ip(),
-                ]);
-                return response()->json(['error' => 'Unauthorized - Invalid origin domain'], 401);
-            }
-        }
+        //     // Check if the origin matches the client's domain or is a subdomain
+        //     if (!$this->isValidOrigin($origin, $allowedDomain)) {
+        //         Log::warning('Authentication failed - Invalid origin domain', [
+        //             'client_id' => $client->id,
+        //             'client_uuid' => $client->uuid,
+        //             'origin' => $origin,
+        //             'allowed_domain' => $allowedDomain,
+        //             'url' => $request->url(),
+        //             'method' => $request->method(),
+        //             'ip' => $request->ip(),
+        //         ]);
+        //         return response()->json(['error' => 'Unauthorized - Invalid origin domain'], 401);
+        //     }
+        // }
 
-        // Set the authenticated client
+        // Set the authenticated client using Sanctum's proper authentication
         Auth::guard('sanctum')->setUser($client);
         $request->setUserResolver(function () use ($client) {
             return $client;
         });
+
+        // Update last used timestamp for the token
+        $tokenRecord->update(['last_used_at' => now()]);
 
         return $next($request);
     }
@@ -170,4 +174,5 @@ class ClientAuthMiddleware
 
         return false;
     }
+
 }
