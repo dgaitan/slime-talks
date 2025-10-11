@@ -239,7 +239,7 @@ class MessageRepository implements MessageRepositoryInterface
             ->whereIn('channel_id', $channelIds)
             ->whereIn('sender_id', [$customer1Id, $customer2Id]) // Only messages from either customer
             ->with(['channel', 'sender'])
-            ->orderBy('created_at', 'desc'); // Newest first
+            ->orderBy('created_at', 'asc'); // Newest first
 
         if ($startingAfter) {
             $startingMessage = Message::where('uuid', $startingAfter)->first();

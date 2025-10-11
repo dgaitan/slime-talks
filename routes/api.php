@@ -19,9 +19,9 @@ Route::prefix('v1')->group(function () {
         Route::get('customers/active-for-sender', [CustomerController::class, 'getActiveCustomersForSender']);
         Route::get('channels', [ChannelController::class, 'index']);
         Route::post('channels', [ChannelController::class, 'store']);
+        Route::get('channels/by-email', [ChannelController::class, 'getChannelsByEmail']);
         Route::get('channels/{channel}', [ChannelController::class, 'show']);
         Route::get('channels/customer/{customerUuid}', [ChannelController::class, 'getCustomerChannels']);
-        Route::get('channels/by-email', [ChannelController::class, 'getChannelsByEmail']);
         Route::post('messages', [MessageController::class, 'store']);
         Route::post('messages/send-to-customer', [MessageController::class, 'sendToCustomer']);
         Route::get('messages/channel/{channelUuid}', [MessageController::class, 'getChannelMessages']);
