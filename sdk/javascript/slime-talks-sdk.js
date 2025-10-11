@@ -140,6 +140,26 @@ class SlimeTalksSDK {
         return this._request('GET', endpoint);
     }
 
+    /**
+     * Get active customers for a specific sender
+     * 
+     * Returns customers who have exchanged messages with the specified sender.
+     * Perfect for building personalized conversation sidebars.
+     * 
+     * @param {string} senderEmail - Email of the sender to filter by
+     * @param {Object} [params] - Query parameters
+     * @param {number} [params.limit] - Number of items per page (default: 20)
+     * @param {string} [params.starting_after] - UUID to start after
+     * @returns {Promise<Object>} Active customers who talked with the sender
+     */
+    async getActiveCustomersForSender(senderEmail, params = {}) {
+        // Email will be converted to lowercase on the server
+        const queryParams = { ...params, email: senderEmail };
+        const query = new URLSearchParams(queryParams).toString();
+        const endpoint = `/customers/active-for-sender${query ? `?${query}` : ''}`;
+        return this._request('GET', endpoint);
+    }
+
     // ==================== Channel Management ====================
 
     /**
@@ -196,7 +216,10 @@ class SlimeTalksSDK {
      * @returns {Promise<Object>} Grouped channels by recipient
      */
     async getChannelsByEmail(email) {
-        return this._request('GET', `/channels/by-email/${encodeURIComponent(email)}`);
+        // Email will be converted to lowercase on the server
+        const query = new URLSearchParams({ email }).toString();
+        const endpoint = `/channels/by-email${query ? `?${query}` : ''}`;
+        return this._request('GET', endpoint);
     }
 
     // ==================== Message Management ====================
@@ -257,8 +280,10 @@ class SlimeTalksSDK {
      * @returns {Promise<Object>} Messages between customers
      */
     async getMessagesBetweenCustomers(email1, email2, params = {}) {
-        const query = new URLSearchParams(params).toString();
-        const endpoint = `/messages/between/${encodeURIComponent(email1)}/${encodeURIComponent(email2)}${query ? `?${query}` : ''}`;
+        // Emails will be converted to lowercase on the server
+        const queryParams = { ...params, email1, email2 };
+        const query = new URLSearchParams(queryParams).toString();
+        const endpoint = `/messages/between${query ? `?${query}` : ''}`;
         return this._request('GET', endpoint);
     }
 

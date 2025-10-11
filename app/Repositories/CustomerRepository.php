@@ -270,4 +270,141 @@ class CustomerRepository implements CustomerRepositoryInterface
                 ->count(),
         ];
     }
+
+    /**
+     * Get active customers for a specific sender.
+     *
+     * Returns customers who have exchanged messages with the specified sender,
+     * ordered by the latest message activity between them. This finds all customers
+     * that share channels with the sender and have exchanged messages.
+     *
+     * @param Client $client Client instance to get customers for
+     * @param string $senderEmail Email of the sender to filter by
+     * @param int $limit Number of customers per page
+     * @param string|null $startingAfter Customer UUID to start after
+     * @return array{data: array, has_more: bool, total_count: int} Active customers data
+     *
+     * @example
+     * $result = $repository->getActiveCustomersForSender($client, 'sender@example.com', 20);
+     * $customers = $result['data']; // Customers who talked with sender
+     */
+    public function getActiveCustomersForSender(Client $client, string $senderEmail, int $limit = 20, ?string $startingAfter = null): array
+    {
+        // First, find the sender customer
+        $sender = Customer::where('email', $senderEmail)
+            ->where('client_id', $client->id)
+            ->first();
+
+        if (!$sender) {
+            return [
+                'data' => [],
+                'has_more' => false,
+                'total_count' => 0,
+            ];
+        }
+
+        // Get all channels where the sender participates
+        $senderChannelIds = \DB::table('channel_customer')
+            ->where('customer_id', $sender->id)
+            ->pluck('channel_id')
+            ->toArray();
+
+        if (empty($senderChannelIds)) {
+            return [
+                'data' => [],
+                'has_more' => false,
+                'total_count' => 0,
+            ];
+        }
+
+        // Get customers who share channels with the sender (excluding the sender)
+        // and have exchanged messages with them
+        $query = Customer::where('client_id', $client->id)
+            ->where('id', '!=', $sender->id)
+            ->whereHas('channels', function ($q) use ($senderChannelIds) {
+                $q->whereIn('channels.id', $senderChannelIds);
+            })
+            ->whereHas('sentMessages', function ($q) use ($senderChannelIds) {
+                $q->whereIn('channel_id', $senderChannelIds);
+            })
+            ->select('customers.*')
+            ->selectRaw('(
+                SELECT MAX(messages.created_at)
+                FROM messages
+                WHERE messages.channel_id IN (' . implode(',', $senderChannelIds) . ')
+                AND (messages.sender_id = customers.id OR messages.sender_id = ?)
+            ) as latest_conversation_at', [$sender->id])
+            ->orderByRaw('latest_conversation_at DESC')
+            ->orderBy('customers.id', 'desc');
+
+        if ($startingAfter) {
+            $startingCustomer = Customer::where('uuid', $startingAfter)->first();
+            if ($startingCustomer) {
+                // Get the latest conversation time for the starting customer
+                $startingTime = \DB::table('messages')
+                    ->whereIn('channel_id', $senderChannelIds)
+                    ->where(function ($q) use ($startingCustomer, $sender) {
+                        $q->where('sender_id', $startingCustomer->id)
+                          ->orWhere('sender_id', $sender->id);
+                    })
+                    ->max('created_at');
+
+                $query->where(function ($q) use ($startingTime, $startingCustomer) {
+                    $q->whereRaw('latest_conversation_at < ?', [$startingTime])
+                      ->orWhere(function ($q2) use ($startingTime, $startingCustomer) {
+                          $q2->whereRaw('latest_conversation_at = ?', [$startingTime])
+                             ->where('customers.id', '<', $startingCustomer->id);
+                      });
+                });
+            }
+        }
+
+        $customers = $query->limit($limit + 1)->get();
+        $hasMore = $customers->count() > $limit;
+        
+        if ($hasMore) {
+            $customers->pop();
+        }
+
+        // Format the response data
+        $data = $customers->map(function ($customer) use ($senderChannelIds, $sender) {
+            // Get the latest message in the conversation
+            $latestMessage = \DB::table('messages')
+                ->whereIn('channel_id', $senderChannelIds)
+                ->where(function ($q) use ($customer, $sender) {
+                    $q->where('sender_id', $customer->id)
+                      ->orWhere('sender_id', $sender->id);
+                })
+                ->orderBy('created_at', 'desc')
+                ->first();
+            
+            return [
+                'object' => 'customer',
+                'id' => $customer->uuid,
+                'name' => $customer->name,
+                'email' => $customer->email,
+                'metadata' => $customer->metadata,
+                'latest_message_at' => $latestMessage ? strtotime($latestMessage->created_at) : null,
+                'created' => $customer->created_at?->timestamp,
+                'livemode' => false,
+            ];
+        })->toArray();
+
+        // Count total customers who have conversed with the sender
+        $totalCount = Customer::where('client_id', $client->id)
+            ->where('id', '!=', $sender->id)
+            ->whereHas('channels', function ($q) use ($senderChannelIds) {
+                $q->whereIn('channels.id', $senderChannelIds);
+            })
+            ->whereHas('sentMessages', function ($q) use ($senderChannelIds) {
+                $q->whereIn('channel_id', $senderChannelIds);
+            })
+            ->count();
+
+        return [
+            'data' => $data,
+            'has_more' => $hasMore,
+            'total_count' => $totalCount,
+        ];
+    }
 }

@@ -75,4 +75,18 @@ interface CustomerRepositoryInterface
      * @return array{data: array, has_more: bool, total_count: int} Active customers data
      */
     public function getActiveCustomers(Client $client, int $limit = 20, ?string $startingAfter = null): array;
+
+    /**
+     * Get active customers for a specific sender.
+     * 
+     * Returns customers who have exchanged messages with the specified sender,
+     * ordered by the latest message activity between them.
+     *
+     * @param Client $client Client instance to get customers for
+     * @param string $senderEmail Email of the sender to filter by
+     * @param int $limit Number of customers per page
+     * @param string|null $startingAfter Customer UUID to start after
+     * @return array{data: array, has_more: bool, total_count: int} Active customers data
+     */
+    public function getActiveCustomersForSender(Client $client, string $senderEmail, int $limit = 20, ?string $startingAfter = null): array;
 }

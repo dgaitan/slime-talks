@@ -16,15 +16,16 @@ Route::prefix('v1')->group(function () {
         Route::get('client/{client}', [ClientController::class, 'show']);
         Route::apiResource('customers', CustomerController::class);
         Route::get('customers/active', [CustomerController::class, 'getActiveCustomers']);
+        Route::get('customers/active-for-sender', [CustomerController::class, 'getActiveCustomersForSender']);
         Route::get('channels', [ChannelController::class, 'index']);
         Route::post('channels', [ChannelController::class, 'store']);
         Route::get('channels/{channel}', [ChannelController::class, 'show']);
         Route::get('channels/customer/{customerUuid}', [ChannelController::class, 'getCustomerChannels']);
-        Route::get('channels/by-email/{email}', [ChannelController::class, 'getChannelsByEmail']);
+        Route::get('channels/by-email', [ChannelController::class, 'getChannelsByEmail']);
         Route::post('messages', [MessageController::class, 'store']);
         Route::post('messages/send-to-customer', [MessageController::class, 'sendToCustomer']);
         Route::get('messages/channel/{channelUuid}', [MessageController::class, 'getChannelMessages']);
         Route::get('messages/customer/{customerUuid}', [MessageController::class, 'getCustomerMessages']);
-        Route::get('messages/between/{email1}/{email2}', [MessageController::class, 'getMessagesBetweenCustomers']);
+        Route::get('messages/between', [MessageController::class, 'getMessagesBetweenCustomers']);
     });
 });

@@ -218,14 +218,14 @@ class ChannelController extends Controller
      * customer-centric messaging interfaces where you want to show
      * conversations grouped by customer pairs.
      *
-     * @param string $email Customer email to get channels for
+     * @param Request $request HTTP request containing email parameter
      * @return JsonResponse JSON response with grouped channels
      *
      * @throws \Illuminate\Database\Eloquent\ModelNotFoundException When customer not found
      * @throws \Illuminate\Auth\AuthenticationException When client is not authenticated
      *
      * @example
-     * GET /api/v1/channels/by-email/john@example.com
+     * GET /api/v1/channels/by-email?email=john@example.com
      *
      * Response (200):
      * {
@@ -247,8 +247,20 @@ class ChannelController extends Controller
      *     "total_count": 2
      * }
      */
-    public function getChannelsByEmail(string $email): JsonResponse
+    public function getChannelsByEmail(Request $request): JsonResponse
     {
+        // Get email from query parameter and convert to lowercase
+        $email = $request->get('email');
+        
+        if (!$email) {
+            return response()->json([
+                'error' => 'The email parameter is required.',
+            ], 422);
+        }
+        
+        // Convert email to lowercase for consistent querying
+        $email = strtolower(trim($email));
+        
         $result = $this->channelService->getChannelsByEmail(
             auth('sanctum')->user(), // Client from middleware
             $email

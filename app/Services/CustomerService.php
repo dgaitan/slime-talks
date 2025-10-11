@@ -243,4 +243,27 @@ class CustomerService implements CustomerServiceInterface
     {
         return $this->customerRepository->getActiveCustomers($client, $limit, $startingAfter);
     }
+
+    /**
+     * Get active customers for a specific sender.
+     *
+     * Returns customers who have exchanged messages with the specified sender,
+     * ordered by the latest message activity between them. This is perfect for
+     * building personalized conversation sidebars where a user sees only the
+     * people they've communicated with.
+     *
+     * @param Client $client The client requesting the customers
+     * @param string $senderEmail Email of the sender to filter by
+     * @param int $limit Number of customers per page
+     * @param string|null $startingAfter Customer UUID to start after
+     * @return array{data: array, has_more: bool, total_count: int} Active customers data
+     *
+     * @example
+     * $result = $service->getActiveCustomersForSender($client, 'sender@example.com', 20);
+     * $customers = $result['data']; // Customers who talked with sender
+     */
+    public function getActiveCustomersForSender(Client $client, string $senderEmail, int $limit = 20, ?string $startingAfter = null): array
+    {
+        return $this->customerRepository->getActiveCustomersForSender($client, $senderEmail, $limit, $startingAfter);
+    }
 }

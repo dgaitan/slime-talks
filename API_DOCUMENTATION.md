@@ -236,6 +236,56 @@ Lists customers ordered by their latest message activity. This endpoint is desig
 - `latest_message_at` is a Unix timestamp of when the customer sent their last message
 - Perfect for building sidebar lists of active conversations
 
+#### Get Active Customers For Sender
+
+**GET** `/customers/active-for-sender`
+
+Lists customers who have exchanged messages with a specific sender, ordered by their latest conversation activity. This endpoint is perfect for building personalized messaging interfaces where users only see the people they've communicated with.
+
+**Query Parameters:**
+- `email` (required): Email of the sender to filter by (automatically converted to lowercase)
+- `limit` (optional): Number of customers per page (default: 20)
+- `starting_after` (optional): Customer UUID to start after
+
+**Response:**
+```json
+{
+    "object": "list",
+    "data": [
+        {
+            "object": "customer",
+            "id": "cus_0987654321",
+            "name": "Jane Smith",
+            "email": "jane@example.com",
+            "metadata": null,
+            "latest_message_at": 1640995500,
+            "created": 1640908800,
+            "livemode": false
+        },
+        {
+            "object": "customer",
+            "id": "cus_1122334455",
+            "name": "Bob Wilson",
+            "email": "bob@example.com",
+            "metadata": null,
+            "latest_message_at": 1640995300,
+            "created": 1640995000,
+            "livemode": false
+        }
+    ],
+    "has_more": false,
+    "total_count": 2
+}
+```
+
+**Notes:**
+- Only includes customers who have exchanged messages with the specified sender
+- Ordered by `latest_message_at` (most recent conversation first)
+- Returns empty list if the sender doesn't exist or has no conversations
+- Email parameter is automatically converted to lowercase (e.g., `Alice@Example.COM` becomes `alice@example.com`)
+- Perfect for WhatsApp/Slack-style "My Conversations" sidebars
+- Returns 422 error if email parameter is missing
+
 ### Channel Management
 
 #### Create General Channel
@@ -423,12 +473,12 @@ Lists all channels where a specific customer participates.
 
 #### Get Channels by Email (Grouped by Recipient)
 
-**GET** `/channels/by-email/{email}`
+**GET** `/channels/by-email`
 
 Retrieves all channels for a customer by their email address, grouped by the recipient (the other customer in each conversation). This endpoint is designed for building customer-centric messaging interfaces where channels are organized by who the customer is talking to.
 
-**Path Parameters:**
-- `email`: The customer's email address
+**Query Parameters:**
+- `email` (required): The customer's email address (automatically converted to lowercase)
 
 **Response:**
 ```json
@@ -489,8 +539,10 @@ Retrieves all channels for a customer by their email address, grouped by the rec
 - Excludes the requesting customer from the recipients list
 - Ordered by `latest_message_at` (most recent conversations first)
 - `updated_at` shows when each channel last received a message
+- Email parameter is automatically converted to lowercase (e.g., `Alice@Example.COM` becomes `alice@example.com`)
 - Perfect for building WhatsApp/Slack-style conversation sidebars
 - Returns 404 if the customer email is not found
+- Returns 422 error if email parameter is missing
 
 ### Message Management
 
@@ -598,15 +650,13 @@ Retrieves all messages sent by a specific customer across all channels, ordered 
 
 #### Get Messages Between Customers
 
-**GET** `/messages/between/{email1}/{email2}`
+**GET** `/messages/between`
 
 Retrieves all messages exchanged between two customers, regardless of which channel the messages were sent in. This endpoint aggregates messages from all channels where both customers participate, ordered by creation time (newest first).
 
-**Path Parameters:**
-- `email1`: Email address of the first customer
-- `email2`: Email address of the second customer
-
 **Query Parameters:**
+- `email1` (required): Email address of the first customer (automatically converted to lowercase)
+- `email2` (required): Email address of the second customer (automatically converted to lowercase)
 - `limit` (optional): Number of messages per page (default: 10)
 - `starting_after` (optional): Message UUID to start after
 
@@ -982,11 +1032,13 @@ curl -X GET "https://your-api-domain.com/api/v1/customers/active?limit=20" \
 #### 2. Get Grouped Conversations for a Customer
 
 ```bash
-curl -X GET "https://your-api-domain.com/api/v1/channels/by-email/john@example.com" \
+curl -X GET "https://your-api-domain.com/api/v1/channels/by-email?email=john@example.com" \
   -H "Authorization: Bearer sk_test_1234567890" \
   -H "X-Public-Key: pk_test_1234567890" \
   -H "Origin: https://yourdomain.com"
 ```
+
+**Note:** The email parameter is automatically converted to lowercase on the server.
 
 **Response:**
 ```json
@@ -1020,11 +1072,13 @@ curl -X GET "https://your-api-domain.com/api/v1/channels/by-email/john@example.c
 #### 3. Load Conversation Between Two Customers
 
 ```bash
-curl -X GET "https://your-api-domain.com/api/v1/messages/between/john@example.com/jane@example.com?limit=50" \
+curl -X GET "https://your-api-domain.com/api/v1/messages/between?email1=john@example.com&email2=jane@example.com&limit=50" \
   -H "Authorization: Bearer sk_test_1234567890" \
   -H "X-Public-Key: pk_test_1234567890" \
   -H "Origin: https://yourdomain.com"
 ```
+
+**Note:** Both `email1` and `email2` are automatically converted to lowercase on the server for consistent querying (e.g., `John@Example.COM` becomes `john@example.com`).
 
 **Response:**
 ```json

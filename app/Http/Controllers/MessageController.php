@@ -170,15 +170,28 @@ class MessageController extends Controller
      * where they both participate. Messages are ordered by creation time
      * (newest first). This is useful for customer-centric messaging interfaces.
      *
-     * @param string $email1 First customer email
-     * @param string $email2 Second customer email
      * @param Request $request The HTTP request
      * @return JsonResponse The messages response
      */
-    public function getMessagesBetweenCustomers(string $email1, string $email2, Request $request): JsonResponse
+    public function getMessagesBetweenCustomers(Request $request): JsonResponse
     {
         try {
             $client = auth('sanctum')->user();
+            
+            // Get emails from query parameters and convert to lowercase
+            $email1 = $request->get('email1');
+            $email2 = $request->get('email2');
+            
+            // Validate required parameters
+            if (!$email1 || !$email2) {
+                return response()->json([
+                    'error' => 'Both email1 and email2 parameters are required.',
+                ], 422);
+            }
+            
+            // Convert emails to lowercase for consistent querying
+            $email1 = strtolower(trim($email1));
+            $email2 = strtolower(trim($email2));
             
             $limit = (int) $request->get('limit', 10);
             $startingAfter = $request->get('starting_after');
@@ -205,8 +218,8 @@ class MessageController extends Controller
         } catch (\Exception $e) {
             Log::error('Failed to retrieve messages between customers', [
                 'error' => $e->getMessage(),
-                'email1' => $email1,
-                'email2' => $email2,
+                'email1' => $request->get('email1'),
+                'email2' => $request->get('email2'),
             ]);
 
             return response()->json([
