@@ -27,6 +27,8 @@ The Slime Talks Messaging API is a multi-tenant messaging system that allows app
 - **Manage Channels**: Create general (direct) and custom (topic-specific) channels
 - **Send Messages**: Send messages between customers in channels
 - **Retrieve Messages**: Get messages by channel or customer with full pagination
+- **Customer-Centric Messaging**: Build WhatsApp/Slack-style interfaces with activity-ordered customers and grouped conversations
+- **Direct Messaging**: Send messages directly to customers without manual channel management
 
 ### Key Features
 
@@ -35,6 +37,9 @@ The Slime Talks Messaging API is a multi-tenant messaging system that allows app
 - ✅ **Domain Validation**: Origin header checking
 - ✅ **Comprehensive Pagination**: Cursor-based pagination support
 - ✅ **Stripe-inspired API**: Consistent JSON responses
+- ✅ **Customer-Centric Design**: Activity-ordered customers and grouped conversations
+- ✅ **Smart Channel Management**: Automatic channel creation and reuse
+- ✅ **Cross-Channel Messaging**: Retrieve all messages between customers
 - ✅ **Full Test Coverage**: 107 tests with 414 assertions
 - ✅ **Production Ready**: Error logging and validation
 
@@ -180,6 +185,56 @@ Lists all customers for the authenticated client.
     "total_count": 1
 }
 ```
+
+#### Get Active Customers
+
+**GET** `/customers/active`
+
+Lists customers ordered by their latest message activity. This endpoint is designed for building customer-centric messaging interfaces where you need to show customers who have sent messages recently at the top of the list.
+
+**Query Parameters:**
+- `limit` (optional): Number of customers per page (default: 20)
+- `starting_after` (optional): Customer UUID to start after
+
+**Response:**
+```json
+{
+    "object": "list",
+    "data": [
+        {
+            "object": "customer",
+            "id": "cus_1234567890",
+            "name": "John Doe",
+            "email": "john@example.com",
+            "metadata": {
+                "department": "Engineering",
+                "role": "Developer"
+            },
+            "latest_message_at": 1640995500,
+            "created": 1640995200,
+            "livemode": false
+        },
+        {
+            "object": "customer",
+            "id": "cus_0987654321",
+            "name": "Jane Smith",
+            "email": "jane@example.com",
+            "metadata": null,
+            "latest_message_at": 1640995400,
+            "created": 1640908800,
+            "livemode": false
+        }
+    ],
+    "has_more": false,
+    "total_count": 2
+}
+```
+
+**Notes:**
+- Only includes customers who have sent at least one message
+- Ordered by `latest_message_at` (most recent first)
+- `latest_message_at` is a Unix timestamp of when the customer sent their last message
+- Perfect for building sidebar lists of active conversations
 
 ### Channel Management
 
@@ -366,6 +421,77 @@ Lists all channels where a specific customer participates.
 }
 ```
 
+#### Get Channels by Email (Grouped by Recipient)
+
+**GET** `/channels/by-email/{email}`
+
+Retrieves all channels for a customer by their email address, grouped by the recipient (the other customer in each conversation). This endpoint is designed for building customer-centric messaging interfaces where channels are organized by who the customer is talking to.
+
+**Path Parameters:**
+- `email`: The customer's email address
+
+**Response:**
+```json
+{
+    "data": {
+        "conversations": [
+            {
+                "recipient": {
+                    "object": "customer",
+                    "id": "cus_0987654321",
+                    "name": "Jane Smith",
+                    "email": "jane@example.com"
+                },
+                "channels": [
+                    {
+                        "object": "channel",
+                        "id": "ch_1234567890",
+                        "type": "general",
+                        "name": "General",
+                        "updated_at": 1640995500
+                    },
+                    {
+                        "object": "channel",
+                        "id": "ch_2234567890",
+                        "type": "custom",
+                        "name": "Project Discussion",
+                        "updated_at": 1640995400
+                    }
+                ],
+                "latest_message_at": 1640995500
+            },
+            {
+                "recipient": {
+                    "object": "customer",
+                    "id": "cus_1122334455",
+                    "name": "Bob Wilson",
+                    "email": "bob@example.com"
+                },
+                "channels": [
+                    {
+                        "object": "channel",
+                        "id": "ch_3334567890",
+                        "type": "general",
+                        "name": "General",
+                        "updated_at": 1640995300
+                    }
+                ],
+                "latest_message_at": 1640995300
+            }
+        ]
+    },
+    "total_count": 2
+}
+```
+
+**Notes:**
+- Groups channels by the other customer (recipient) in the conversation
+- Excludes the requesting customer from the recipients list
+- Ordered by `latest_message_at` (most recent conversations first)
+- `updated_at` shows when each channel last received a message
+- Perfect for building WhatsApp/Slack-style conversation sidebars
+- Returns 404 if the customer email is not found
+
 ### Message Management
 
 #### Send Message
@@ -469,6 +595,128 @@ Retrieves all messages sent by a specific customer across all channels, ordered 
     "total_count": 1
 }
 ```
+
+#### Get Messages Between Customers
+
+**GET** `/messages/between/{email1}/{email2}`
+
+Retrieves all messages exchanged between two customers, regardless of which channel the messages were sent in. This endpoint aggregates messages from all channels where both customers participate, ordered by creation time (newest first).
+
+**Path Parameters:**
+- `email1`: Email address of the first customer
+- `email2`: Email address of the second customer
+
+**Query Parameters:**
+- `limit` (optional): Number of messages per page (default: 10)
+- `starting_after` (optional): Message UUID to start after
+
+**Response:**
+```json
+{
+    "object": "list",
+    "data": [
+        {
+            "object": "message",
+            "id": "msg_1234567890",
+            "channel_id": "ch_1234567890",
+            "sender_id": "cus_1234567890",
+            "type": "text",
+            "content": "Hello! How are you?",
+            "metadata": null,
+            "created": 1640995500,
+            "livemode": false
+        },
+        {
+            "object": "message",
+            "id": "msg_0987654321",
+            "channel_id": "ch_1234567890",
+            "sender_id": "cus_0987654321",
+            "type": "text",
+            "content": "I'm doing great, thanks!",
+            "metadata": null,
+            "created": 1640995400,
+            "livemode": false
+        },
+        {
+            "object": "message",
+            "id": "msg_1122334455",
+            "channel_id": "ch_2234567890",
+            "sender_id": "cus_1234567890",
+            "type": "text",
+            "content": "Check out this document",
+            "metadata": {
+                "file_url": "https://example.com/doc.pdf"
+            },
+            "created": 1640995300,
+            "livemode": false
+        }
+    ],
+    "has_more": false,
+    "total_count": 3
+}
+```
+
+**Notes:**
+- Aggregates messages from all channels where both customers participate
+- Only includes messages sent by either of the two specified customers
+- Ordered by creation time (newest first)
+- Perfect for displaying a complete conversation history between two customers
+- Returns 404 if either customer is not found
+- Includes `channel_id` and `sender_id` to identify message context
+
+#### Send Message to Customer
+
+**POST** `/messages/send-to-customer`
+
+Sends a message directly to a customer. This endpoint automatically finds or creates a "general" channel between the sender and recipient, then sends the message to that channel. This simplifies the messaging flow by eliminating the need to manually manage channels.
+
+**Request Body:**
+```json
+{
+    "sender_email": "john@example.com",
+    "recipient_email": "jane@example.com",
+    "type": "text",
+    "content": "Hello! How can I help you today?",
+    "metadata": {
+        "priority": "normal",
+        "category": "support"
+    }
+}
+```
+
+**Response:**
+```json
+{
+    "object": "message",
+    "id": "msg_1234567890",
+    "channel_id": "ch_1234567890",
+    "sender_id": "cus_1234567890",
+    "type": "text",
+    "content": "Hello! How can I help you today?",
+    "metadata": {
+        "priority": "normal",
+        "category": "support"
+    },
+    "created": 1640995200,
+    "livemode": false
+}
+```
+
+**Request Parameters:**
+- `sender_email` (required): Email of the sender customer
+- `recipient_email` (required): Email of the recipient customer
+- `type` (required): Message type (`text`, `image`, `file`, `system`)
+- `content` (required): Message content
+- `metadata` (optional): Additional metadata object
+
+**Notes:**
+- Automatically finds or creates a "general" channel between sender and recipient
+- If a general channel already exists, it reuses that channel
+- If no general channel exists, it creates one automatically
+- Returns 404 if either customer is not found
+- Validates that both customers belong to the authenticated client
+- Perfect for simple one-to-one messaging without manual channel management
+- Updates the channel's `updated_at` timestamp for activity tracking
 
 ## Response Formats
 
@@ -687,6 +935,205 @@ const message = await api.messages.send({
 const messages = await api.messages.getChannelMessages(channel.id, {
   limit: 10
 });
+```
+
+### Customer-Centric Messaging Example
+
+This example demonstrates building a WhatsApp/Slack-style messaging interface using the customer-centric endpoints:
+
+#### 1. Get Active Customers (Sidebar)
+
+```bash
+curl -X GET "https://your-api-domain.com/api/v1/customers/active?limit=20" \
+  -H "Authorization: Bearer sk_test_1234567890" \
+  -H "X-Public-Key: pk_test_1234567890" \
+  -H "Origin: https://yourdomain.com"
+```
+
+**Response:**
+```json
+{
+    "object": "list",
+    "data": [
+        {
+            "object": "customer",
+            "id": "cus_1234567890",
+            "name": "John Doe",
+            "email": "john@example.com",
+            "latest_message_at": 1640995500,
+            "created": 1640995200,
+            "livemode": false
+        },
+        {
+            "object": "customer",
+            "id": "cus_0987654321",
+            "name": "Jane Smith",
+            "email": "jane@example.com",
+            "latest_message_at": 1640995400,
+            "created": 1640908800,
+            "livemode": false
+        }
+    ],
+    "has_more": false,
+    "total_count": 2
+}
+```
+
+#### 2. Get Grouped Conversations for a Customer
+
+```bash
+curl -X GET "https://your-api-domain.com/api/v1/channels/by-email/john@example.com" \
+  -H "Authorization: Bearer sk_test_1234567890" \
+  -H "X-Public-Key: pk_test_1234567890" \
+  -H "Origin: https://yourdomain.com"
+```
+
+**Response:**
+```json
+{
+    "data": {
+        "conversations": [
+            {
+                "recipient": {
+                    "object": "customer",
+                    "id": "cus_0987654321",
+                    "name": "Jane Smith",
+                    "email": "jane@example.com"
+                },
+                "channels": [
+                    {
+                        "object": "channel",
+                        "id": "ch_1234567890",
+                        "type": "general",
+                        "name": "General",
+                        "updated_at": 1640995500
+                    }
+                ],
+                "latest_message_at": 1640995500
+            }
+        ]
+    },
+    "total_count": 1
+}
+```
+
+#### 3. Load Conversation Between Two Customers
+
+```bash
+curl -X GET "https://your-api-domain.com/api/v1/messages/between/john@example.com/jane@example.com?limit=50" \
+  -H "Authorization: Bearer sk_test_1234567890" \
+  -H "X-Public-Key: pk_test_1234567890" \
+  -H "Origin: https://yourdomain.com"
+```
+
+**Response:**
+```json
+{
+    "object": "list",
+    "data": [
+        {
+            "object": "message",
+            "id": "msg_1234567890",
+            "channel_id": "ch_1234567890",
+            "sender_id": "cus_1234567890",
+            "type": "text",
+            "content": "Hello! How are you?",
+            "metadata": null,
+            "created": 1640995500,
+            "livemode": false
+        },
+        {
+            "object": "message",
+            "id": "msg_0987654321",
+            "channel_id": "ch_1234567890",
+            "sender_id": "cus_0987654321",
+            "type": "text",
+            "content": "I'm doing great, thanks!",
+            "metadata": null,
+            "created": 1640995400,
+            "livemode": false
+        }
+    ],
+    "has_more": false,
+    "total_count": 2
+}
+```
+
+#### 4. Send Direct Message to Customer
+
+```bash
+curl -X POST "https://your-api-domain.com/api/v1/messages/send-to-customer" \
+  -H "Authorization: Bearer sk_test_1234567890" \
+  -H "X-Public-Key: pk_test_1234567890" \
+  -H "Origin: https://yourdomain.com" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sender_email": "john@example.com",
+    "recipient_email": "jane@example.com",
+    "type": "text",
+    "content": "That sounds great! Let me know if you need anything."
+  }'
+```
+
+**Response:**
+```json
+{
+    "object": "message",
+    "id": "msg_2234567890",
+    "channel_id": "ch_1234567890",
+    "sender_id": "cus_1234567890",
+    "type": "text",
+    "content": "That sounds great! Let me know if you need anything.",
+    "metadata": null,
+    "created": 1640995600,
+    "livemode": false
+}
+```
+
+#### Complete JavaScript Implementation
+
+```javascript
+// Initialize SDK
+const sdk = new SlimeTalksSDK({
+    apiUrl: 'https://your-api-domain.com/api/v1',
+    secretKey: 'sk_test_1234567890',
+    publicKey: 'pk_test_1234567890',
+    origin: 'https://yourdomain.com'
+});
+
+// Build customer-centric messaging interface
+class MessagingApp {
+    async init(currentUserEmail) {
+        // Load active customers for sidebar
+        const activeCustomers = await sdk.getActiveCustomers({ limit: 50 });
+        this.renderSidebar(activeCustomers.data);
+    }
+
+    async selectCustomer(customerEmail, currentUserEmail) {
+        // Load conversation with selected customer
+        const messages = await sdk.getMessagesBetweenCustomers(
+            currentUserEmail,
+            customerEmail,
+            { limit: 50 }
+        );
+        this.renderMessages(messages.data);
+    }
+
+    async sendMessage(senderEmail, recipientEmail, content) {
+        // Send direct message (auto-creates/finds general channel)
+        const message = await sdk.sendToCustomer({
+            sender_email: senderEmail,
+            recipient_email: recipientEmail,
+            type: 'text',
+            content: content
+        });
+        this.appendMessage(message);
+    }
+}
+
+// Usage
+const app = new MessagingApp();
+await app.init('john@example.com');
 ```
 
 ## Testing

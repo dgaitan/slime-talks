@@ -83,4 +83,25 @@ interface MessageRepositoryInterface
      * @return array{data: \Illuminate\Database\Eloquent\Collection, has_more: bool, total_count: int}
      */
     public function getMessagesForCustomer(int $customerId, int $clientId, int $limit = 10, ?string $startingAfter = null): array;
+
+    /**
+     * Find a customer by email and client.
+     *
+     * @param string $email Customer email
+     * @param int $clientId Client ID
+     * @return \App\Models\Customer|null The customer or null if not found
+     */
+    public function findCustomerByEmailAndClient(string $email, int $clientId): ?\App\Models\Customer;
+
+    /**
+     * Get messages between two customers with pagination.
+     *
+     * @param int $customer1Id First customer ID
+     * @param int $customer2Id Second customer ID
+     * @param int $clientId Client ID
+     * @param int $limit Number of messages per page
+     * @param string|null $startingAfter Message UUID to start after
+     * @return array{data: \Illuminate\Database\Eloquent\Collection, has_more: bool, total_count: int}
+     */
+    public function getMessagesBetweenCustomers(int $customer1Id, int $customer2Id, int $clientId, int $limit = 10, ?string $startingAfter = null): array;
 }

@@ -321,4 +321,27 @@ class ChannelService implements ChannelServiceInterface
     {
         return $this->channelRepository->getChannelsForCustomer($client, $customerUuid);
     }
+
+    /**
+     * Get channels for a customer by email, grouped by recipient.
+     *
+     * Retrieves all channels where the specified customer participates,
+     * grouped by the other participants (recipients). This is useful for
+     * customer-centric messaging interfaces where you want to show
+     * conversations grouped by customer pairs.
+     *
+     * @param Client $client The client requesting the channels
+     * @param string $email Customer email to get channels for
+     * @return array{data: array, total_count: int} Grouped channels data
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException When customer not found or doesn't belong to client
+     *
+     * @example
+     * $result = $service->getChannelsByEmail($client, 'john@example.com');
+     * $conversations = $result['data']['conversations']; // Array of grouped conversations
+     * $totalCount = $result['total_count']; // Total number of unique recipients
+     */
+    public function getChannelsByEmail(Client $client, string $email): array
+    {
+        return $this->channelRepository->getChannelsByEmail($client, $email);
+    }
 }

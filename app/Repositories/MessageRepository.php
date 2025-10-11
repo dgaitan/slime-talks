@@ -178,4 +178,90 @@ class MessageRepository implements MessageRepositoryInterface
                 ->count(),
         ];
     }
+
+    /**
+     * Find a customer by email and client.
+     *
+     * @param string $email Customer email
+     * @param int $clientId Client ID
+     * @return \App\Models\Customer|null The customer or null if not found
+     */
+    public function findCustomerByEmailAndClient(string $email, int $clientId): ?\App\Models\Customer
+    {
+        return \App\Models\Customer::where('email', $email)
+            ->where('client_id', $clientId)
+            ->first();
+    }
+
+    /**
+     * Get messages between two customers with pagination.
+     *
+     * Retrieves all messages between two customers across all channels
+     * where they both participate. Messages are ordered by creation time
+     * (newest first) and include proper pagination support.
+     *
+     * @param int $customer1Id First customer ID
+     * @param int $customer2Id Second customer ID
+     * @param int $clientId Client ID
+     * @param int $limit Number of messages per page
+     * @param string|null $startingAfter Message UUID to start after
+     * @return array{data: \Illuminate\Database\Eloquent\Collection, has_more: bool, total_count: int}
+     *
+     * @example
+     * $result = $repository->getMessagesBetweenCustomers(1, 2, 1, 10, null);
+     * $messages = $result['data']; // Collection of messages
+     * $hasMore = $result['has_more']; // Boolean indicating if more results exist
+     * $totalCount = $result['total_count']; // Total number of messages between customers
+     */
+    public function getMessagesBetweenCustomers(int $customer1Id, int $customer2Id, int $clientId, int $limit = 10, ?string $startingAfter = null): array
+    {
+        // Get all channels where both customers participate
+        $channelIds = \App\Models\Channel::where('client_id', $clientId)
+            ->whereHas('customers', function ($query) use ($customer1Id) {
+                $query->where('customers.id', $customer1Id);
+            })
+            ->whereHas('customers', function ($query) use ($customer2Id) {
+                $query->where('customers.id', $customer2Id);
+            })
+            ->pluck('id')
+            ->toArray();
+
+        if (empty($channelIds)) {
+            return [
+                'data' => collect([]),
+                'has_more' => false,
+                'total_count' => 0,
+            ];
+        }
+
+        // Get messages from all channels where both customers participate
+        $query = Message::where('client_id', $clientId)
+            ->whereIn('channel_id', $channelIds)
+            ->whereIn('sender_id', [$customer1Id, $customer2Id]) // Only messages from either customer
+            ->with(['channel', 'sender'])
+            ->orderBy('created_at', 'desc'); // Newest first
+
+        if ($startingAfter) {
+            $startingMessage = Message::where('uuid', $startingAfter)->first();
+            if ($startingMessage) {
+                $query->where('created_at', '<', $startingMessage->created_at);
+            }
+        }
+
+        $messages = $query->limit($limit + 1)->get();
+        $hasMore = $messages->count() > $limit;
+        
+        if ($hasMore) {
+            $messages->pop();
+        }
+
+        return [
+            'data' => $messages,
+            'has_more' => $hasMore,
+            'total_count' => Message::where('client_id', $clientId)
+                ->whereIn('channel_id', $channelIds)
+                ->whereIn('sender_id', [$customer1Id, $customer2Id])
+                ->count(),
+        ];
+    }
 }

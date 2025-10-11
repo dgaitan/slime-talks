@@ -48,6 +48,9 @@ class ChannelResource extends JsonResource
             'name' => $this->name,
             'created' => $this->created_at?->timestamp,
             'livemode' => false, // TODO: Implement livemode logic
+            'customers' => $this->whenLoaded('customers', function () {
+                return CustomerResource::collection($this->customers);
+            }),
         ];
     }
 }

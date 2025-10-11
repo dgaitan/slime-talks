@@ -174,4 +174,69 @@ class CustomerController extends Controller
 
         return response()->json(new CustomerResource($customer));
     }
+
+    /**
+     * Get active customers ordered by latest message activity.
+     *
+     * Retrieves customers who have sent messages, ordered by their
+     * latest message activity. This is useful for customer-centric
+     * messaging interfaces where you want to show the most active
+     * customers first.
+     *
+     * @param Request $request The HTTP request
+     * @return JsonResponse JSON response with active customers
+     *
+     * @example
+     * GET /api/v1/customers/active?limit=20
+     *
+     * Response (200):
+     * {
+     *     "object": "list",
+     *     "data": [
+     *         {
+     *             "object": "customer",
+     *             "id": "cus_1234567890",
+     *             "name": "John Doe",
+     *             "email": "john@example.com",
+     *             "latest_message_at": 1640995200,
+     *             "created": 1640995100,
+     *             "livemode": false
+     *         }
+     *     ],
+     *     "has_more": false,
+     *     "total_count": 1
+     * }
+     */
+    public function getActiveCustomers(Request $request): JsonResponse
+    {
+        try {
+            $client = auth('sanctum')->user();
+            
+            $limit = (int) $request->get('limit', 20);
+            $startingAfter = $request->get('starting_after');
+
+            $result = $this->customerService->getActiveCustomers(
+                $client,
+                $limit,
+                $startingAfter
+            );
+
+            return response()->json([
+                'object' => 'list',
+                'data' => $result['data'],
+                'has_more' => $result['has_more'],
+                'total_count' => $result['total_count'],
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to retrieve active customers', [
+                'error' => $e->getMessage(),
+                'client_id' => auth('sanctum')->id(),
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to retrieve customers. Please try again.',
+            ], 500);
+        }
+    }
 }

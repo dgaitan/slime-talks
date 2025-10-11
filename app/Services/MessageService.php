@@ -26,9 +26,11 @@ class MessageService implements MessageServiceInterface
      * Create a new MessageService instance.
      *
      * @param MessageRepositoryInterface $messageRepository Message repository
+     * @param ChannelServiceInterface $channelService Channel service
      */
     public function __construct(
-        private readonly MessageRepositoryInterface $messageRepository
+        private readonly MessageRepositoryInterface $messageRepository,
+        private readonly ChannelServiceInterface $channelService
     ) {}
 
     /**
@@ -103,6 +105,9 @@ class MessageService implements MessageServiceInterface
             ];
 
             $message = $this->messageRepository->create($messageData);
+
+            // Update channel's updated_at timestamp to reflect latest activity
+            $channel->touch();
 
             // Broadcast the message to channel participants
             broadcast(new MessageSent($message));
@@ -209,6 +214,115 @@ class MessageService implements MessageServiceInterface
             ]);
 
             throw new \Illuminate\Database\Eloquent\ModelNotFoundException('Customer not found');
+        }
+    }
+
+    /**
+     * Get messages between two customers.
+     *
+     * Validates that both customers belong to the authenticated client
+     * and returns paginated messages across all channels where they both participate.
+     *
+     * @param string $email1 First customer email
+     * @param string $email2 Second customer email
+     * @param int $clientId Client ID
+     * @param int $limit Number of messages per page
+     * @param string|null $startingAfter Message UUID to start after
+     * @return array{data: \Illuminate\Database\Eloquent\Collection, has_more: bool, total_count: int}
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If customers not found
+     */
+    public function getMessagesBetweenCustomers(string $email1, string $email2, int $clientId, int $limit = 10, ?string $startingAfter = null): array
+    {
+        try {
+            // Find both customers and validate they belong to client
+            $customer1 = $this->messageRepository->findCustomerByEmailAndClient($email1, $clientId);
+            $customer2 = $this->messageRepository->findCustomerByEmailAndClient($email2, $clientId);
+
+            if (!$customer1 || !$customer2) {
+                Log::warning('Messages between customers failed: One or both customers not found or do not belong to client', [
+                    'email1' => $email1,
+                    'email2' => $email2,
+                    'client_id' => $clientId,
+                ]);
+
+                throw new \Illuminate\Database\Eloquent\ModelNotFoundException('One or both customers not found');
+            }
+
+            // Get messages between the two customers
+            return $this->messageRepository->getMessagesBetweenCustomers($customer1->id, $customer2->id, $clientId, $limit, $startingAfter);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            Log::error('Unexpected error retrieving messages between customers', [
+                'error' => $e->getMessage(),
+                'email1' => $email1,
+                'email2' => $email2,
+                'client_id' => $clientId,
+            ]);
+
+            throw new \Illuminate\Database\Eloquent\ModelNotFoundException('One or both customers not found');
+        }
+    }
+
+    /**
+     * Send a message to a customer (uses general channel between sender and recipient).
+     *
+     * Creates or finds the general channel between the sender and recipient,
+     * then sends the message to that channel. This is useful for customer-centric
+     * messaging interfaces where you want to send messages directly to customers.
+     *
+     * @param array<string, mixed> $data Message data with sender_email, recipient_email, etc.
+     * @param int $clientId Client ID
+     * @return Message The created message
+     * @throws \Illuminate\Validation\ValidationException If validation fails
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If customers not found
+     */
+    public function sendToCustomer(array $data, int $clientId): Message
+    {
+        try {
+            // Find both customers and validate they belong to client
+            $sender = $this->messageRepository->findCustomerByEmailAndClient($data['sender_email'], $clientId);
+            $recipient = $this->messageRepository->findCustomerByEmailAndClient($data['recipient_email'], $clientId);
+
+            if (!$sender || !$recipient) {
+                Log::warning('Send to customer failed: One or both customers not found or do not belong to client', [
+                    'sender_email' => $data['sender_email'],
+                    'recipient_email' => $data['recipient_email'],
+                    'client_id' => $clientId,
+                ]);
+
+                throw new \Illuminate\Database\Eloquent\ModelNotFoundException('One or both customers not found');
+            }
+
+            // Create or find the general channel between the two customers
+            $client = \App\Models\Client::find($clientId);
+            $channel = $this->channelService->create($client, [
+                'type' => 'general',
+                'customer_uuids' => [$sender->uuid, $recipient->uuid],
+            ]);
+
+            // Send the message to the general channel
+            return $this->sendMessage([
+                'channel_uuid' => $channel->uuid,
+                'sender_uuid' => $sender->uuid,
+                'type' => $data['type'],
+                'content' => $data['content'],
+                'metadata' => $data['metadata'] ?? null,
+            ], $clientId);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            Log::error('Unexpected error sending message to customer', [
+                'error' => $e->getMessage(),
+                'data' => $data,
+                'client_id' => $clientId,
+            ]);
+
+            throw ValidationException::withMessages([
+                'general' => ['An unexpected error occurred while sending the message.'],
+            ]);
         }
     }
 }

@@ -160,13 +160,17 @@ class ChannelRepository implements ChannelRepositoryInterface
      */
     public function paginateByClient(Client $client, int $limit, ?string $startingAfter = null): array
     {
-        $query = Channel::where('client_id', $client->id)
-            ->orderBy('id', 'desc'); // Use id for consistent ordering
+        $query = Channel::query()
+            ->where('client_id', $client->id)
+            ->with('customers')
+            ->orderBy('updated_at', 'desc') // Order by latest activity (most recent first)
+            ->orderBy('id', 'desc'); // Secondary sort for ties
 
         if ($startingAfter) {
             $startingChannel = Channel::where('uuid', $startingAfter)->first();
             if ($startingChannel) {
-                $query->where('id', '<', $startingChannel->id);
+                $query->where('updated_at', '<=', $startingChannel->updated_at)
+                    ->where('id', '<', $startingChannel->id);
             }
         }
 
@@ -189,7 +193,7 @@ class ChannelRepository implements ChannelRepositoryInterface
      *
      * Retrieves all channels where the specified customer participates.
      * Only returns channels belonging to the specified client.
-     * Results are ordered by creation date in descending order (newest first).
+     * Results are ordered by latest activity (updated_at) in descending order.
      *
      * @param Client $client Client instance to get channels for
      * @param string $customerUuid Customer UUID to get channels for
@@ -209,12 +213,13 @@ class ChannelRepository implements ChannelRepositoryInterface
             ->where('client_id', $client->id)
             ->firstOrFail();
 
-        // Get channels where this customer participates
+        // Get channels where this customer participates, ordered by latest activity
         $channels = Channel::where('client_id', $client->id)
             ->whereHas('customers', function ($query) use ($customer) {
                 $query->where('customers.id', $customer->id);
             })
-            ->orderBy('created_at', 'desc')
+            ->orderBy('updated_at', 'desc') // Order by latest activity
+            ->orderBy('id', 'desc') // Secondary sort for ties
             ->get();
 
         return [
@@ -247,5 +252,91 @@ class ChannelRepository implements ChannelRepositoryInterface
             ->where('type', 'custom')
             ->where('name', $name)
             ->first();
+    }
+
+    /**
+     * Get channels for a customer by email, grouped by recipient.
+     *
+     * Retrieves all channels where the specified customer participates,
+     * grouped by the other participants (recipients). Results are ordered
+     * by the latest message activity within each conversation.
+     *
+     * @param Client $client Client instance to get channels for
+     * @param string $email Customer email to get channels for
+     * @return array{data: array, total_count: int} Grouped channels data
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException When customer not found
+     *
+     * @example
+     * $result = $repository->getChannelsByEmail($client, 'john@example.com');
+     * $conversations = $result['data']['conversations'];
+     * $totalCount = $result['total_count'];
+     */
+    public function getChannelsByEmail(Client $client, string $email): array
+    {
+        // First, find the customer by email and ensure it belongs to the client
+        $customer = \App\Models\Customer::where('email', $email)
+            ->where('client_id', $client->id)
+            ->firstOrFail();
+
+        // Get all channels where this customer participates
+        $channels = Channel::where('client_id', $client->id)
+            ->whereHas('customers', function ($query) use ($customer) {
+                $query->where('customers.id', $customer->id);
+            })
+            ->with(['customers' => function ($query) use ($customer) {
+                $query->where('customers.id', '!=', $customer->id); // Exclude the requesting customer
+            }])
+            ->orderBy('updated_at', 'desc')
+            ->orderBy('id', 'desc')
+            ->get();
+
+        // Group channels by recipient
+        $conversations = [];
+        $recipientMap = [];
+
+        foreach ($channels as $channel) {
+            foreach ($channel->customers as $recipient) {
+                $recipientKey = $recipient->id;
+
+                if (!isset($recipientMap[$recipientKey])) {
+                    $recipientMap[$recipientKey] = [
+                        'recipient' => [
+                            'object' => 'customer',
+                            'id' => $recipient->uuid,
+                            'name' => $recipient->name,
+                            'email' => $recipient->email,
+                        ],
+                        'channels' => [],
+                        'latest_message_at' => $channel->updated_at->timestamp,
+                    ];
+                }
+
+                $recipientMap[$recipientKey]['channels'][] = [
+                    'object' => 'channel',
+                    'id' => $channel->uuid,
+                    'type' => $channel->type,
+                    'name' => $channel->name,
+                    'updated_at' => $channel->updated_at->timestamp,
+                ];
+
+                // Update latest message time if this channel is more recent
+                if ($channel->updated_at->timestamp > $recipientMap[$recipientKey]['latest_message_at']) {
+                    $recipientMap[$recipientKey]['latest_message_at'] = $channel->updated_at->timestamp;
+                }
+            }
+        }
+
+        // Convert to array and sort by latest message time
+        $conversations = array_values($recipientMap);
+        usort($conversations, function ($a, $b) {
+            return $b['latest_message_at'] <=> $a['latest_message_at'];
+        });
+
+        return [
+            'data' => [
+                'conversations' => $conversations,
+            ],
+            'total_count' => count($conversations),
+        ];
     }
 }

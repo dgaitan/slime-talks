@@ -51,4 +51,28 @@ interface MessageServiceInterface
      * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If customer not found
      */
     public function getCustomerMessages(string $customerUuid, int $clientId, int $limit = 10, ?string $startingAfter = null): array;
+
+    /**
+     * Get messages between two customers.
+     *
+     * @param string $email1 First customer email
+     * @param string $email2 Second customer email
+     * @param int $clientId Client ID
+     * @param int $limit Number of messages per page
+     * @param string|null $startingAfter Message UUID to start after
+     * @return array{data: \Illuminate\Database\Eloquent\Collection, has_more: bool, total_count: int}
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If customers not found
+     */
+    public function getMessagesBetweenCustomers(string $email1, string $email2, int $clientId, int $limit = 10, ?string $startingAfter = null): array;
+
+    /**
+     * Send a message to a customer (uses general channel between sender and recipient).
+     *
+     * @param array<string, mixed> $data Message data with sender_email, recipient_email, etc.
+     * @param int $clientId Client ID
+     * @return Message The created message
+     * @throws \Illuminate\Validation\ValidationException If validation fails
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException If customers not found
+     */
+    public function sendToCustomer(array $data, int $clientId): Message;
 }

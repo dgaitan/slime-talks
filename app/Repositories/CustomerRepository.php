@@ -196,4 +196,78 @@ class CustomerRepository implements CustomerRepositoryInterface
     {
         return $customer->delete();
     }
+
+    /**
+     * Get active customers ordered by latest message activity.
+     *
+     * Retrieves customers who have sent messages, ordered by their
+     * latest message activity. This is useful for customer-centric
+     * messaging interfaces where you want to show the most active
+     * customers first.
+     *
+     * @param Client $client Client instance to get customers for
+     * @param int $limit Number of customers per page
+     * @param string|null $startingAfter Customer UUID to start after
+     * @return array{data: array, has_more: bool, total_count: int} Active customers data
+     *
+     * @example
+     * $result = $repository->getActiveCustomers($client, 20, null);
+     * $customers = $result['data']; // Array of customer data
+     * $hasMore = $result['has_more']; // Boolean indicating if more results exist
+     * $totalCount = $result['total_count']; // Total number of active customers
+     */
+    public function getActiveCustomers(Client $client, int $limit = 20, ?string $startingAfter = null): array
+    {
+        // Get customers who have sent messages, ordered by their latest message time
+        $query = Customer::where('client_id', $client->id)
+            ->whereHas('sentMessages')
+            ->withMax('sentMessages', 'created_at')
+            ->orderBy('sent_messages_max_created_at', 'desc')
+            ->orderBy('id', 'desc');
+
+        if ($startingAfter) {
+            $startingCustomer = Customer::where('uuid', $startingAfter)->first();
+            if ($startingCustomer) {
+                $latestMessageTime = $startingCustomer->sentMessages()->max('created_at');
+                $query->where(function ($q) use ($latestMessageTime, $startingCustomer) {
+                    $q->where('sent_messages_max_created_at', '<', $latestMessageTime)
+                      ->orWhere(function ($q2) use ($latestMessageTime, $startingCustomer) {
+                          $q2->where('sent_messages_max_created_at', $latestMessageTime)
+                             ->where('id', '<', $startingCustomer->id);
+                      });
+                });
+            }
+        }
+
+        $customers = $query->limit($limit + 1)->get();
+        $hasMore = $customers->count() > $limit;
+        
+        if ($hasMore) {
+            $customers->pop();
+        }
+
+        // Format the response data
+        $data = $customers->map(function ($customer) {
+            $latestMessage = $customer->sentMessages()->latest()->first();
+            
+            return [
+                'object' => 'customer',
+                'id' => $customer->uuid,
+                'name' => $customer->name,
+                'email' => $customer->email,
+                'metadata' => $customer->metadata,
+                'latest_message_at' => $latestMessage?->created_at?->timestamp,
+                'created' => $customer->created_at?->timestamp,
+                'livemode' => false,
+            ];
+        })->toArray();
+
+        return [
+            'data' => $data,
+            'has_more' => $hasMore,
+            'total_count' => Customer::where('client_id', $client->id)
+                ->whereHas('sentMessages')
+                ->count(),
+        ];
+    }
 }

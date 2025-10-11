@@ -175,6 +175,215 @@ realtime.joinChannel('ch_1234567890', {
 });
 ```
 
+## 🎯 Customer-Centric Messaging
+
+The Slime Talks API now includes powerful customer-centric messaging features that make it easy to build WhatsApp/Slack-style interfaces:
+
+### Key Features
+
+- **Active Customers**: Get customers ordered by latest message activity
+- **Grouped Conversations**: Channels grouped by customer pairs
+- **Cross-Channel Messages**: Retrieve all messages between two customers
+- **Direct Messaging**: Send messages directly to customers via general channels
+
+### Customer-Centric Use Case: Build a Support Dashboard
+
+#### PHP
+
+```php
+public function getSupportDashboard(Request $request)
+{
+    try {
+        // Get active customers (ordered by latest message activity)
+        $activeCustomers = $this->slimeTalks->getActiveCustomers([
+            'limit' => 50
+        ]);
+
+        // Get conversations for a specific customer
+        $conversations = $this->slimeTalks->getChannelsByEmail($request->customer_email);
+
+        return response()->json([
+            'active_customers' => $activeCustomers,
+            'conversations' => $conversations
+        ]);
+    } catch (SlimeTalksException $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+}
+
+public function getCustomerConversation(Request $request)
+{
+    try {
+        // Get all messages between two customers (across all channels)
+        $messages = $this->slimeTalks->getMessagesBetweenCustomers(
+            $request->customer1_email,
+            $request->customer2_email,
+            ['limit' => 50]
+        );
+
+        return response()->json($messages);
+    } catch (SlimeTalksException $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+}
+
+public function sendDirectMessage(Request $request)
+{
+    try {
+        // Send message directly to customer (uses general channel)
+        $message = $this->slimeTalks->sendToCustomer([
+            'sender_email' => $request->sender_email,
+            'recipient_email' => $request->recipient_email,
+            'type' => 'text',
+            'content' => $request->content,
+            'metadata' => $request->metadata ?? null
+        ]);
+
+        return response()->json($message);
+    } catch (SlimeTalksException $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+}
+```
+
+#### JavaScript
+
+```javascript
+class SupportDashboard {
+    constructor(sdk) {
+        this.sdk = sdk;
+        this.currentUser = null;
+        this.selectedCustomer = null;
+    }
+
+    async init(user) {
+        this.currentUser = user;
+        await this.loadActiveCustomers();
+        
+        // Initialize real-time messaging
+        this.realtime = this.sdk.initRealtime(user);
+        this.setupRealtimeHandlers();
+    }
+
+    async loadActiveCustomers() {
+        try {
+            // Get customers ordered by latest message activity
+            const response = await this.sdk.getActiveCustomers({ limit: 50 });
+            
+            // Update sidebar with active customers
+            this.updateSidebar(response.data);
+            
+        } catch (error) {
+            console.error('Failed to load active customers:', error);
+        }
+    }
+
+    async selectCustomer(customer) {
+        this.selectedCustomer = customer;
+        
+        // Load conversation between current user and selected customer
+        await this.loadConversation(customer.email);
+        
+        // Join real-time channel for live updates
+        this.joinConversationChannel(customer.email);
+    }
+
+    async loadConversation(customerEmail) {
+        try {
+            // Get all messages between current user and selected customer
+            const response = await this.sdk.getMessagesBetweenCustomers(
+                this.currentUser.email,
+                customerEmail,
+                { limit: 50 }
+            );
+            
+            // Display conversation messages
+            this.displayMessages(response.data);
+            
+        } catch (error) {
+            console.error('Failed to load conversation:', error);
+        }
+    }
+
+    async sendMessage(content) {
+        if (!this.selectedCustomer || !content.trim()) {
+            return;
+        }
+
+        try {
+            // Send message directly to customer (uses general channel)
+            const message = await this.sdk.sendToCustomer({
+                sender_email: this.currentUser.email,
+                recipient_email: this.selectedCustomer.email,
+                type: 'text',
+                content: content.trim(),
+            });
+
+            // Add message to UI immediately
+            this.addMessageToUI(message);
+            
+            // Clear input
+            this.clearInput();
+
+        } catch (error) {
+            console.error('Failed to send message:', error);
+        }
+    }
+
+    setupRealtimeHandlers() {
+        if (!this.realtime) return;
+
+        // Handle new messages
+        this.realtime.on('message.sent', (data) => {
+            // Only show message if it's from the current conversation
+            if (this.selectedCustomer && 
+                (data.message.sender_id === this.selectedCustomer.id || 
+                 data.message.sender_id === this.currentUser.id)) {
+                this.addMessageToUI(data.message);
+            }
+            
+            // Update sidebar to show new activity
+            this.loadActiveCustomers();
+        });
+
+        // Handle typing indicators
+        this.realtime.on('typing.started', (data) => {
+            if (this.selectedCustomer && data.customer.id === this.selectedCustomer.id) {
+                this.showTypingIndicator(data.customer);
+            }
+        });
+
+        this.realtime.on('typing.stopped', (data) => {
+            if (this.selectedCustomer && data.customer.id === this.selectedCustomer.id) {
+                this.hideTypingIndicator();
+            }
+        });
+    }
+}
+
+// Usage
+const dashboard = new SupportDashboard(sdk);
+await dashboard.init({
+    id: 'support-agent-uuid',
+    name: 'Support Agent',
+    email: 'agent@company.com'
+});
+```
+
+### Demo Application
+
+A complete demo application is available at:
+- **HTML Demo**: `sdk/javascript/customer-messaging-demo.html`
+- **Example Class**: `sdk/javascript/customer-messaging-example.js`
+- **Setup Guide**: `sdk/javascript/CUSTOMER_MESSAGING_DEMO_SETUP.md`
+
+The demo showcases:
+- Modern WhatsApp/Slack-style interface
+- Active customers sidebar
+- Real-time messaging
+- Typing indicators
+- Cross-channel conversation history
+
 ## 📖 Common Use Cases
 
 ### Use Case 1: Create a Customer and Start a Conversation
