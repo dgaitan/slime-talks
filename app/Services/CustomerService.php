@@ -64,6 +64,7 @@ class CustomerService implements CustomerServiceInterface
     {
         try {
             $this->validateCustomerData($data);
+            $data['email'] = strtolower($data['email']);
             $exists = $this->ensureEmailUniqueness($client, $data['email'], false);
             if ($exists) {
                 return $this->findByEmail($client, $data['email']);
