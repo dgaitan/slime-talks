@@ -64,6 +64,7 @@ class CustomerService implements CustomerServiceInterface
     {
         try {
             $this->validateCustomerData($data);
+            $data['email'] = strtolower($data['email']);
             $exists = $this->ensureEmailUniqueness($client, $data['email'], false);
             if ($exists) {
                 return $this->findByEmail($client, $data['email']);
@@ -218,5 +219,52 @@ class CustomerService implements CustomerServiceInterface
         }
 
         return false;
+    }
+
+    /**
+     * Get active customers ordered by latest message activity.
+     *
+     * Retrieves customers who have sent messages, ordered by their
+     * latest message activity. This is useful for customer-centric
+     * messaging interfaces where you want to show the most active
+     * customers first.
+     *
+     * @param Client $client The client requesting the customers
+     * @param int $limit Number of customers per page
+     * @param string|null $startingAfter Customer UUID to start after
+     * @return array{data: array, has_more: bool, total_count: int} Active customers data
+     *
+     * @example
+     * $result = $service->getActiveCustomers($client, 20, null);
+     * $customers = $result['data']; // Array of customer data
+     * $hasMore = $result['has_more']; // Boolean indicating if more results exist
+     * $totalCount = $result['total_count']; // Total number of active customers
+     */
+    public function getActiveCustomers(Client $client, int $limit = 20, ?string $startingAfter = null): array
+    {
+        return $this->customerRepository->getActiveCustomers($client, $limit, $startingAfter);
+    }
+
+    /**
+     * Get active customers for a specific sender.
+     *
+     * Returns customers who have exchanged messages with the specified sender,
+     * ordered by the latest message activity between them. This is perfect for
+     * building personalized conversation sidebars where a user sees only the
+     * people they've communicated with.
+     *
+     * @param Client $client The client requesting the customers
+     * @param string $senderEmail Email of the sender to filter by
+     * @param int $limit Number of customers per page
+     * @param string|null $startingAfter Customer UUID to start after
+     * @return array{data: array, has_more: bool, total_count: int} Active customers data
+     *
+     * @example
+     * $result = $service->getActiveCustomersForSender($client, 'sender@example.com', 20);
+     * $customers = $result['data']; // Customers who talked with sender
+     */
+    public function getActiveCustomersForSender(Client $client, string $senderEmail, int $limit = 20, ?string $startingAfter = null): array
+    {
+        return $this->customerRepository->getActiveCustomersForSender($client, $senderEmail, $limit, $startingAfter);
     }
 }

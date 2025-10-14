@@ -90,4 +90,18 @@ interface ChannelRepositoryInterface
      * @return Channel|null Existing channel if found, null otherwise
      */
     public function findExistingCustomChannel(string $name, Client $client): ?Channel;
+
+    /**
+     * Get channels for a customer by email, grouped by recipient.
+     *
+     * Retrieves all channels where the specified customer participates,
+     * grouped by the other participants (recipients). Results are ordered
+     * by the latest message activity within each conversation.
+     *
+     * @param Client $client Client instance to get channels for
+     * @param string $email Customer email to get channels for
+     * @return array{data: array, total_count: int} Grouped channels data
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException When customer not found
+     */
+    public function getChannelsByEmail(Client $client, string $email): array;
 }

@@ -127,7 +127,14 @@ const customers = await sdk.listCustomers({
     starting_after: 'cus_1234567890'
 });
 
+// Get active customers (ordered by latest message activity)
+const activeCustomers = await sdk.getActiveCustomers({
+    limit: 20,
+    starting_after: 'cus_1234567890'
+});
+
 console.log('Customers:', customers.data);
+console.log('Active customers:', activeCustomers.data);
 console.log('Has more:', customers.has_more);
 console.log('Total count:', customers.total_count);
 ```
@@ -156,6 +163,10 @@ const channels = await sdk.listChannels({ limit: 10 });
 
 // Get channels for a customer
 const userChannels = await sdk.getCustomerChannels('cus_1234567890');
+
+// Get channels for a customer by email (grouped by recipient)
+const groupedChannels = await sdk.getChannelsByEmail('customer@example.com');
+console.log('Conversations:', groupedChannels.data.conversations);
 ```
 
 ### Message Management
@@ -184,9 +195,177 @@ const customerMessages = await sdk.getCustomerMessages('cus_1234567890', {
     limit: 50
 });
 
+// Get messages between two customers (all channels)
+const conversationMessages = await sdk.getMessagesBetweenCustomers(
+    'customer1@example.com',
+    'customer2@example.com',
+    { limit: 50 }
+);
+
+// Send a message directly to a customer (uses general channel)
+const directMessage = await sdk.sendToCustomer({
+    sender_email: 'sender@example.com',
+    recipient_email: 'recipient@example.com',
+    type: 'text',
+    content: 'Hello! How are you?',
+    metadata: {
+        priority: 'normal'
+    }
+});
+
 // Iterate through messages
 messages.data.forEach(msg => {
     console.log(`${msg.id}: ${msg.content}`);
+});
+```
+
+## Customer-Centric Messaging
+
+The SDK includes special methods for building customer-centric messaging interfaces (like WhatsApp or Slack):
+
+### Customer-Centric Messaging Example
+
+```javascript
+class CustomerMessagingApp {
+    constructor(sdk) {
+        this.sdk = sdk;
+        this.currentUser = null;
+        this.selectedCustomer = null;
+    }
+
+    async init(user) {
+        this.currentUser = user;
+        
+        // Load active customers for sidebar
+        await this.loadActiveCustomers();
+        
+        // Initialize real-time messaging
+        this.realtime = this.sdk.initRealtime(user);
+        this.setupRealtimeHandlers();
+    }
+
+    async loadActiveCustomers() {
+        try {
+            // Get customers ordered by latest message activity
+            const response = await this.sdk.getActiveCustomers({ limit: 50 });
+            const customers = response.data;
+            
+            // Update sidebar with customers who have sent messages recently
+            this.updateSidebar(customers);
+            
+        } catch (error) {
+            console.error('Failed to load active customers:', error);
+        }
+    }
+
+    async selectCustomer(customer) {
+        this.selectedCustomer = customer;
+        
+        // Load conversation between current user and selected customer
+        await this.loadConversation(customer.email);
+        
+        // Join real-time channel for this conversation
+        this.joinConversationChannel(customer.email);
+    }
+
+    async loadConversation(customerEmail) {
+        try {
+            // Get all messages between current user and selected customer
+            const response = await this.sdk.getMessagesBetweenCustomers(
+                this.currentUser.email,
+                customerEmail,
+                { limit: 50 }
+            );
+            
+            // Display conversation messages
+            this.displayMessages(response.data);
+            
+        } catch (error) {
+            console.error('Failed to load conversation:', error);
+        }
+    }
+
+    async sendMessage(content) {
+        if (!this.selectedCustomer || !content.trim()) {
+            return;
+        }
+
+        try {
+            // Send message directly to customer (uses general channel)
+            const message = await this.sdk.sendToCustomer({
+                sender_email: this.currentUser.email,
+                recipient_email: this.selectedCustomer.email,
+                type: 'text',
+                content: content.trim(),
+            });
+
+            // Add message to UI
+            this.addMessageToUI(message);
+            
+            // Clear input
+            this.clearInput();
+
+        } catch (error) {
+            console.error('Failed to send message:', error);
+        }
+    }
+
+    async getChannelsByCustomer(customerEmail) {
+        try {
+            // Get channels grouped by recipient for sidebar
+            const response = await this.sdk.getChannelsByEmail(customerEmail);
+            
+            // Each conversation shows the other customer and latest activity
+            return response.data.conversations;
+            
+        } catch (error) {
+            console.error('Failed to get channels:', error);
+            return [];
+        }
+    }
+}
+
+// Usage
+const app = new CustomerMessagingApp(sdk);
+await app.init({
+    id: 'customer-uuid',
+    name: 'Current User',
+    email: 'current@example.com'
+});
+```
+
+### Customer-Centric UI Patterns
+
+```javascript
+// Load customers for sidebar (ordered by activity)
+const activeCustomers = await sdk.getActiveCustomers({ limit: 20 });
+
+// Each customer shows:
+// - Name and avatar
+// - Latest message timestamp
+// - Unread count (if implemented)
+
+activeCustomers.data.forEach(customer => {
+    console.log(`${customer.name}: Last active ${customer.latest_message_at}`);
+});
+
+// When customer is selected, load conversation
+const messages = await sdk.getMessagesBetweenCustomers(
+    'current@example.com',
+    'selected@example.com'
+);
+
+// Messages include all channels between the two customers
+messages.data.forEach(message => {
+    console.log(`From ${message.sender_id}: ${message.content}`);
+});
+
+// Send new message (automatically uses general channel)
+await sdk.sendToCustomer({
+    sender_email: 'current@example.com',
+    recipient_email: 'selected@example.com',
+    type: 'text',
+    content: 'Hello!'
 });
 ```
 

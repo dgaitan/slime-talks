@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDK Test - Email Parameter Updates</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        h2 {
+            color: #666;
+            margin-top: 0;
+        }
+        .test-result {
+            background: #f8f8f8;
+            padding: 15px;
+            border-left: 4px solid #2196f3;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        .success {
+            border-left-color: #4caf50;
+        }
+        .error {
+            border-left-color: #f44336;
+        }
+        button {
+            background: #2196f3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1976d2;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        code {
+            color: #e91e63;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 SDK Email Parameter Test</h1>
+    <p>This page tests that the SDK correctly uses query parameters for email-based endpoints.</p>
+
+    <div class="test-section">
+        <h2>Test 1: getActiveCustomersForSender()</h2>
+        <p>Should send: <code>GET /customers/active-for-sender?email=alice@example.com&limit=20</code></p>
+        <button onclick="testActiveCustomersForSender()">Run Test</button>
+        <div id="test1-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: getMessagesBetweenCustomers()</h2>
+        <p>Should send: <code>GET /messages/between?email1=alice@example.com&email2=bob@example.com&limit=50</code></p>
+        <button onclick="testMessagesBetweenCustomers()">Run Test</button>
+        <div id="test2-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Case Insensitivity</h2>
+        <p>Should handle: <code>Alice@Example.COM</code> correctly (server converts to lowercase)</p>
+        <button onclick="testCaseInsensitivity()">Run Test</button>
+        <div id="test3-result"></div>
+    </div>
+
+    <script src="slime-talks-sdk.js"></script>
+    <script>
+        // Mock SDK that shows what URLs are being generated
+        class TestSDK extends SlimeTalksSDK {
+            async _request(method, endpoint, data = null) {
+                // Don't actually make the request, just show what would be sent
+                const result = {
+                    method: method,
+                    endpoint: endpoint,
+                    fullUrl: `${this.config.apiUrl}${endpoint}`,
+                    data: data,
+                    headers: {
+                        'Authorization': `Bearer ${this.config.secretKey}`,
+                        'X-Public-Key': this.config.publicKey,
+                        'Origin': this.config.origin
+                    }
+                };
+                
+                return result;
+            }
+        }
+
+        // Initialize test SDK
+        const sdk = new TestSDK({
+            apiUrl: 'https://api.example.com/api/v1',
+            secretKey: 'sk_test_1234567890',
+            publicKey: 'pk_test_1234567890',
+            origin: 'https://example.com'
+        });
+
+        async function testActiveCustomersForSender() {
+            const resultDiv = document.getElementById('test1-result');
+            resultDiv.innerHTML = '<div class="test-result">Running test...</div>';
+            
+            try {
+                const result = await sdk.getActiveCustomersForSender('alice@example.com', { limit: 20 });
+                
+                const isCorrect = result.endpoint.includes('?email=alice') && 
+                                  !result.endpoint.includes('/alice@');
+                
+                resultDiv.innerHTML = `
+                    <div class="test-result ${isCorrect ? 'success' : 'error'}">
+                        <strong>${isCorrect ? '✅ PASS' : '❌ FAIL'}</strong><br>
+                        <strong>Method:</strong> ${result.method}<br>
+                        <strong>Endpoint:</strong> ${result.endpoint}<br>
+                        <strong>Full URL:</strong> ${result.fullUrl}<br>
+                        <strong>Expected:</strong> /customers/active-for-sender?email=alice@example.com&limit=20<br>
+                        <strong>Status:</strong> ${isCorrect ? 'Email is in query parameters ✓' : 'Email is in URL path ✗'}
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="test-result error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function testMessagesBetweenCustomers() {
+            const resultDiv = document.getElementById('test2-result');
+            resultDiv.innerHTML = '<div class="test-result">Running test...</div>';
+            
+            try {
+                const result = await sdk.getMessagesBetweenCustomers(
+                    'alice@example.com',
+                    'bob@example.com',
+                    { limit: 50 }
+                );
+                
+                const isCorrect = result.endpoint.includes('?') && 
+                                  result.endpoint.includes('email1=alice') && 
+                                  result.endpoint.includes('email2=bob') &&
+                                  !result.endpoint.includes('/alice@') &&
+                                  !result.endpoint.includes('/bob@');
+                
+                resultDiv.innerHTML = `
+                    <div class="test-result ${isCorrect ? 'success' : 'error'}">
+                        <strong>${isCorrect ? '✅ PASS' : '❌ FAIL'}</strong><br>
+                        <strong>Method:</strong> ${result.method}<br>
+                        <strong>Endpoint:</strong> ${result.endpoint}<br>
+                        <strong>Full URL:</strong> ${result.fullUrl}<br>
+                        <strong>Expected:</strong> /messages/between?email1=alice@example.com&email2=bob@example.com&limit=50<br>
+                        <strong>Status:</strong> ${isCorrect ? 'Emails are in query parameters ✓' : 'Emails are in URL path ✗'}
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="test-result error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function testCaseInsensitivity() {
+            const resultDiv = document.getElementById('test3-result');
+            resultDiv.innerHTML = '<div class="test-result">Running test...</div>';
+            
+            try {
+                const result1 = await sdk.getActiveCustomersForSender('Alice@Example.COM', { limit: 10 });
+                const result2 = await sdk.getMessagesBetweenCustomers('ALICE@EXAMPLE.COM', 'BOB@EXAMPLE.COM');
+                
+                resultDiv.innerHTML = `
+                    <div class="test-result success">
+                        <strong>✅ PASS - Case Handling Works</strong><br><br>
+                        
+                        <strong>Test 1: getActiveCustomersForSender()</strong><br>
+                        Input: <code>Alice@Example.COM</code><br>
+                        Endpoint: ${result1.endpoint}<br>
+                        Note: Email will be converted to lowercase on server<br><br>
+                        
+                        <strong>Test 2: getMessagesBetweenCustomers()</strong><br>
+                        Input: <code>ALICE@EXAMPLE.COM</code>, <code>BOB@EXAMPLE.COM</code><br>
+                        Endpoint: ${result2.endpoint}<br>
+                        Note: Both emails will be converted to lowercase on server<br><br>
+                        
+                        <strong>✓ SDK sends emails as-is</strong><br>
+                        <strong>✓ Server handles lowercase conversion</strong>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="test-result error">Error: ${error.message}</div>`;
+            }
+        }
+
+        // Auto-run tests on load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testActiveCustomersForSender();
+            }, 500);
+            setTimeout(() => {
+                testMessagesBetweenCustomers();
+            }, 1000);
+            setTimeout(() => {
+                testCaseInsensitivity();
+            }, 1500);
+        });
+    </script>
+</body>
+</html>

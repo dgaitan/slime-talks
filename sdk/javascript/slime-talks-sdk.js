@@ -126,6 +126,40 @@ class SlimeTalksSDK {
         return this._request('GET', endpoint);
     }
 
+    /**
+     * Get active customers ordered by latest message activity
+     * 
+     * @param {Object} [params] - Query parameters
+     * @param {number} [params.limit] - Number of items per page (default: 20)
+     * @param {string} [params.starting_after] - UUID to start after
+     * @returns {Promise<Object>} Active customers ordered by activity
+     */
+    async getActiveCustomers(params = {}) {
+        const query = new URLSearchParams(params).toString();
+        const endpoint = `/customers/active${query ? `?${query}` : ''}`;
+        return this._request('GET', endpoint);
+    }
+
+    /**
+     * Get active customers for a specific sender
+     * 
+     * Returns customers who have exchanged messages with the specified sender.
+     * Perfect for building personalized conversation sidebars.
+     * 
+     * @param {string} senderEmail - Email of the sender to filter by
+     * @param {Object} [params] - Query parameters
+     * @param {number} [params.limit] - Number of items per page (default: 20)
+     * @param {string} [params.starting_after] - UUID to start after
+     * @returns {Promise<Object>} Active customers who talked with the sender
+     */
+    async getActiveCustomersForSender(senderEmail, params = {}) {
+        // Email will be converted to lowercase on the server
+        const queryParams = { ...params, email: senderEmail };
+        const query = new URLSearchParams(queryParams).toString();
+        const endpoint = `/customers/active-for-sender${query ? `?${query}` : ''}`;
+        return this._request('GET', endpoint);
+    }
+
     // ==================== Channel Management ====================
 
     /**
@@ -175,6 +209,19 @@ class SlimeTalksSDK {
         return this._request('GET', `/channels/customer/${customerUuid}`);
     }
 
+    /**
+     * Get channels for a customer by email, grouped by recipient
+     * 
+     * @param {string} email - Customer email
+     * @returns {Promise<Object>} Grouped channels by recipient
+     */
+    async getChannelsByEmail(email) {
+        // Email will be converted to lowercase on the server
+        const query = new URLSearchParams({ email }).toString();
+        const endpoint = `/channels/by-email${query ? `?${query}` : ''}`;
+        return this._request('GET', endpoint);
+    }
+
     // ==================== Message Management ====================
 
     /**
@@ -220,6 +267,39 @@ class SlimeTalksSDK {
         const query = new URLSearchParams(params).toString();
         const endpoint = `/messages/customer/${customerUuid}${query ? `?${query}` : ''}`;
         return this._request('GET', endpoint);
+    }
+
+    /**
+     * Get messages between two customers
+     * 
+     * @param {string} email1 - First customer email
+     * @param {string} email2 - Second customer email
+     * @param {Object} [params] - Query parameters
+     * @param {number} [params.limit] - Number of items per page
+     * @param {string} [params.starting_after] - UUID to start after
+     * @returns {Promise<Object>} Messages between customers
+     */
+    async getMessagesBetweenCustomers(email1, email2, params = {}) {
+        // Emails will be converted to lowercase on the server
+        const queryParams = { ...params, email1, email2 };
+        const query = new URLSearchParams(queryParams).toString();
+        const endpoint = `/messages/between${query ? `?${query}` : ''}`;
+        return this._request('GET', endpoint);
+    }
+
+    /**
+     * Send a message directly to a customer (uses general channel)
+     * 
+     * @param {Object} data - Message data
+     * @param {string} data.sender_email - Sender email
+     * @param {string} data.recipient_email - Recipient email
+     * @param {string} data.type - Message type ('text', 'image', 'file', 'system')
+     * @param {string} data.content - Message content
+     * @param {Object} [data.metadata] - Additional metadata
+     * @returns {Promise<Object>} Sent message
+     */
+    async sendToCustomer(data) {
+        return this._request('POST', '/messages/send-to-customer', data);
     }
 
     // ==================== Private Methods ====================

@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Slime Talks - Customer-Centric Messaging Demo</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                    Roboto, sans-serif;
+                background-color: #f5f5f5;
+                height: 100vh;
+                overflow: hidden;
+            }
+
+            .app-container {
+                display: flex;
+                height: 100vh;
+            }
+
+            /* Sidebar */
+            .sidebar {
+                width: 350px;
+                background: #ffffff;
+                border-right: 1px solid #e1e1e1;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .sidebar-header {
+                padding: 20px;
+                border-bottom: 1px solid #e1e1e1;
+                background: #fafafa;
+            }
+
+            .sidebar-title {
+                font-size: 24px;
+                font-weight: 600;
+                color: #333;
+                margin-bottom: 8px;
+            }
+
+            .search-container {
+                position: relative;
+            }
+
+            .search-input {
+                width: 100%;
+                padding: 12px 16px 12px 40px;
+                border: 1px solid #e1e1e1;
+                border-radius: 8px;
+                font-size: 14px;
+                background: #ffffff;
+            }
+
+            .search-icon {
+                position: absolute;
+                left: 12px;
+                top: 50%;
+                transform: translateY(-50%);
+                color: #666;
+            }
+
+            .customers-list {
+                flex: 1;
+                overflow-y: auto;
+            }
+
+            .customer-item {
+                display: flex;
+                align-items: center;
+                padding: 16px 20px;
+                border-bottom: 1px solid #f0f0f0;
+                cursor: pointer;
+                transition: background-color 0.2s;
+            }
+
+            .customer-item:hover {
+                background-color: #f8f8f8;
+            }
+
+            .customer-item.selected {
+                background-color: #e3f2fd;
+                border-right: 3px solid #2196f3;
+            }
+
+            .customer-avatar {
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 600;
+                font-size: 18px;
+                margin-right: 12px;
+                flex-shrink: 0;
+            }
+
+            .customer-info {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .customer-name {
+                font-weight: 600;
+                color: #333;
+                margin-bottom: 2px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .customer-email {
+                font-size: 12px;
+                color: #666;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .customer-last-message {
+                font-size: 11px;
+                color: #999;
+                margin-top: 2px;
+            }
+
+            /* Main Content */
+            .main-content {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                background: #ffffff;
+            }
+
+            .conversation-header {
+                padding: 20px;
+                border-bottom: 1px solid #e1e1e1;
+                background: #fafafa;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            .conversation-info {
+                display: flex;
+                align-items: center;
+            }
+
+            .conversation-avatar {
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%);
+                color: white;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 600;
+                margin-right: 12px;
+            }
+
+            .conversation-title {
+                font-weight: 600;
+                color: #333;
+                margin-bottom: 2px;
+            }
+
+            .conversation-subtitle {
+                font-size: 12px;
+                color: #666;
+            }
+
+            .conversation-actions {
+                display: flex;
+                gap: 12px;
+            }
+
+            .action-button {
+                width: 36px;
+                height: 36px;
+                border: none;
+                border-radius: 50%;
+                background: #f0f0f0;
+                color: #666;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: background-color 0.2s;
+            }
+
+            .action-button:hover {
+                background: #e0e0e0;
+            }
+
+            /* Messages Area */
+            .messages-area {
+                flex: 1;
+                overflow-y: auto;
+                padding: 20px;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .message {
+                display: flex;
+                flex-direction: column;
+                max-width: 70%;
+            }
+
+            .message.own-message {
+                align-self: flex-end;
+                align-items: flex-end;
+            }
+
+            .message.other-message {
+                align-self: flex-start;
+                align-items: flex-start;
+            }
+
+            .message-content {
+                padding: 12px 16px;
+                border-radius: 18px;
+                font-size: 14px;
+                line-height: 1.4;
+                word-wrap: break-word;
+            }
+
+            .message.own-message .message-content {
+                background: #2196f3;
+                color: white;
+            }
+
+            .message.other-message .message-content {
+                background: #f0f0f0;
+                color: #333;
+            }
+
+            .message-meta {
+                margin-top: 4px;
+                font-size: 11px;
+                color: #999;
+            }
+
+            .message-timestamp {
+                margin-left: 8px;
+            }
+
+            /* Typing Indicator */
+            .typing-indicator {
+                display: flex;
+                align-items: center;
+                padding: 12px 16px;
+                background: #f0f0f0;
+                border-radius: 18px;
+                max-width: 70%;
+                align-self: flex-start;
+            }
+
+            .typing-dots {
+                display: flex;
+                gap: 4px;
+                margin-right: 8px;
+            }
+
+            .typing-dots span {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: #999;
+                animation: typing 1.4s infinite ease-in-out;
+            }
+
+            .typing-dots span:nth-child(1) {
+                animation-delay: -0.32s;
+            }
+            .typing-dots span:nth-child(2) {
+                animation-delay: -0.16s;
+            }
+
+            @keyframes typing {
+                0%,
+                80%,
+                100% {
+                    transform: scale(0.8);
+                    opacity: 0.5;
+                }
+                40% {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+            }
+
+            .typing-text {
+                font-size: 12px;
+                color: #666;
+            }
+
+            /* Message Input */
+            .message-input-container {
+                padding: 20px;
+                border-top: 1px solid #e1e1e1;
+                background: #fafafa;
+            }
+
+            .message-input-wrapper {
+                display: flex;
+                align-items: center;
+                background: white;
+                border: 1px solid #e1e1e1;
+                border-radius: 24px;
+                padding: 8px 16px;
+            }
+
+            .message-input {
+                flex: 1;
+                border: none;
+                outline: none;
+                padding: 12px 8px;
+                font-size: 14px;
+                background: transparent;
+            }
+
+            .send-button {
+                width: 36px;
+                height: 36px;
+                border: none;
+                border-radius: 50%;
+                background: #2196f3;
+                color: white;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: background-color 0.2s;
+            }
+
+            .send-button:hover {
+                background: #1976d2;
+            }
+
+            .send-button:disabled {
+                background: #ccc;
+                cursor: not-allowed;
+            }
+
+            /* Empty State */
+            .empty-state {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                color: #666;
+                text-align: center;
+            }
+
+            .empty-state-icon {
+                font-size: 48px;
+                margin-bottom: 16px;
+                opacity: 0.5;
+            }
+
+            .empty-state-title {
+                font-size: 18px;
+                font-weight: 600;
+                margin-bottom: 8px;
+            }
+
+            .empty-state-subtitle {
+                font-size: 14px;
+                opacity: 0.8;
+            }
+
+            /* Loading State */
+            .loading {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+                color: #666;
+            }
+
+            .spinner {
+                width: 20px;
+                height: 20px;
+                border: 2px solid #f3f3f3;
+                border-top: 2px solid #2196f3;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                margin-right: 8px;
+            }
+
+            @keyframes spin {
+                0% {
+                    transform: rotate(0deg);
+                }
+                100% {
+                    transform: rotate(360deg);
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="app-container">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <div class="sidebar-title">Messages</div>
+                    <div class="search-container">
+                        <div class="search-icon">🔍</div>
+                        <input
+                            type="text"
+                            class="search-input"
+                            placeholder="Search conversations..."
+                            id="search-input"
+                        />
+                    </div>
+                </div>
+                <div class="customers-list" id="customers-sidebar">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading customers...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="main-content">
+                <div class="conversation-header" id="conversation-header">
+                    <div class="conversation-info">
+                        <div class="conversation-avatar">?</div>
+                        <div>
+                            <div class="conversation-title">
+                                Select a customer
+                            </div>
+                            <div class="conversation-subtitle">
+                                Choose a conversation to start messaging
+                            </div>
+                        </div>
+                    </div>
+                    <div class="conversation-actions">
+                        <button class="action-button" title="Call">📞</button>
+                        <button class="action-button" title="Video Call">
+                            📹
+                        </button>
+                        <button class="action-button" title="More">⋯</button>
+                    </div>
+                </div>
+
+                <div class="messages-area" id="messages-area">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">💬</div>
+                        <div class="empty-state-title">
+                            No conversation selected
+                        </div>
+                        <div class="empty-state-subtitle">
+                            Select a customer from the sidebar to start
+                            messaging
+                        </div>
+                    </div>
+                </div>
+
+                <div class="message-input-container">
+                    <div class="message-input-wrapper">
+                        <input
+                            type="text"
+                            class="message-input"
+                            placeholder="Type a message..."
+                            id="message-input"
+                            disabled
+                        />
+                        <button class="send-button" id="send-button" disabled>
+                            <span>📤</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Include SDK -->
+        <script src="slime-talks-sdk.js"></script>
+        <script src="slime-talks-realtime.js"></script>
+        <script src="customer-messaging-example.js"></script>
+
+        <script>
+            // Demo data for testing (replace with actual API calls)
+            const demoCustomers = [
+                {
+                    id: "cus_1234567890",
+                    name: "David Nov",
+                    email: "david+nov@mailinator.com",
+                    latest_message_at: Date.now() / 1000 - 300, // 5 minutes ago
+                    created: Date.now() / 1000 - 86400, // 1 day ago
+                },
+                {
+                    id: "cus_0987654321",
+                    name: "David 114008",
+                    email: "david+114008@mailinator.com",
+                    latest_message_at: Date.now() / 1000 - 1800, // 30 minutes ago
+                    created: Date.now() / 1000 - 172800, // 2 days ago
+                },
+                {
+                    id: "cus_1122334455",
+                    name: "David 1082",
+                    email: "david+1082@mailinator.com",
+                    latest_message_at: Date.now() / 1000 - 3600, // 1 hour ago
+                    created: Date.now() / 1000 - 259200, // 3 days ago
+                },
+                {
+                    id: "cus_5566778899",
+                    name: "David WaitNow",
+                    email: "david+nowwait@mailinator.com",
+                    latest_message_at: Date.now() / 1000 - 7200, // 2 hours ago
+                    created: Date.now() / 1000 - 345600, // 4 days ago
+                },
+                {
+                    id: "cus_9988776655",
+                    name: "David 108",
+                    email: "david+108@mailinator.com",
+                    latest_message_at: Date.now() / 1000 - 14400, // 4 hours ago
+                    created: Date.now() / 1000 - 432000, // 5 days ago
+                },
+                {
+                    id: "cus_4433221100",
+                    name: "David Gaitán",
+                    email: "jdavid.gaitan@gmail.com",
+                    latest_message_at: Date.now() / 1000 - 28800, // 8 hours ago
+                    created: Date.now() / 1000 - 518400, // 6 days ago
+                },
+            ];
+
+            const demoMessages = [
+                {
+                    id: "msg_1234567890",
+                    channel_id: "ch_1234567890",
+                    sender_id: "cus_1234567890",
+                    type: "text",
+                    content: "Hello! How are you doing today?",
+                    metadata: null,
+                    created: Date.now() / 1000 - 300,
+                },
+                {
+                    id: "msg_0987654321",
+                    channel_id: "ch_1234567890",
+                    sender_id: "cus_current_user",
+                    type: "text",
+                    content:
+                        "Hi David! I'm doing great, thanks for asking. How about you?",
+                    metadata: null,
+                    created: Date.now() / 1000 - 280,
+                },
+                {
+                    id: "msg_1122334455",
+                    channel_id: "ch_1234567890",
+                    sender_id: "cus_1234567890",
+                    type: "text",
+                    content:
+                        "I'm good too! Just working on some new features for the project.",
+                    metadata: null,
+                    created: Date.now() / 1000 - 260,
+                },
+                {
+                    id: "msg_5566778899",
+                    channel_id: "ch_1234567890",
+                    sender_id: "cus_current_user",
+                    type: "text",
+                    content:
+                        "That sounds exciting! What kind of features are you working on?",
+                    metadata: null,
+                    created: Date.now() / 1000 - 240,
+                },
+                {
+                    id: "msg_9988776655",
+                    channel_id: "ch_1234567890",
+                    sender_id: "cus_1234567890",
+                    type: "text",
+                    content:
+                        "We're adding real-time messaging capabilities with customer-centric interfaces. It's going to be amazing!",
+                    metadata: null,
+                    created: Date.now() / 1000 - 220,
+                },
+            ];
+
+            // Mock SDK for demo purposes
+            class MockSlimeTalksSDK {
+                async getActiveCustomers(params = {}) {
+                    // Simulate API delay
+                    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+                    return {
+                        object: "list",
+                        data: demoCustomers.slice(0, params.limit || 20),
+                        has_more: false,
+                        total_count: demoCustomers.length,
+                    };
+                }
+
+                async getMessagesBetweenCustomers(email1, email2, params = {}) {
+                    await new Promise((resolve) => setTimeout(resolve, 500));
+
+                    return {
+                        object: "list",
+                        data: demoMessages,
+                        has_more: false,
+                        total_count: demoMessages.length,
+                    };
+                }
+
+                async sendToCustomer(data) {
+                    await new Promise((resolve) => setTimeout(resolve, 300));
+
+                    const newMessage = {
+                        id: "msg_" + Math.random().toString(36).substr(2, 9),
+                        channel_id: "ch_1234567890",
+                        sender_id: "cus_current_user",
+                        type: data.type,
+                        content: data.content,
+                        metadata: data.metadata,
+                        created: Date.now() / 1000,
+                    };
+
+                    // Add to demo messages
+                    demoMessages.unshift(newMessage);
+
+                    return newMessage;
+                }
+
+                initRealtime() {
+                    // Mock realtime client
+                    return {
+                        on: () => {},
+                        joinChannel: () => {},
+                        startTyping: () => {},
+                        stopTyping: () => {},
+                    };
+                }
+            }
+
+            // Initialize demo with mock SDK
+            document.addEventListener("DOMContentLoaded", async () => {
+                const sdk = new MockSlimeTalksSDK();
+                const app = new CustomerMessagingApp(sdk);
+
+                const currentUser = {
+                    id: "cus_current_user",
+                    name: "John Doe",
+                    email: "john@example.com",
+                };
+
+                await app.init(currentUser);
+
+                // Set up message input
+                const messageInput = document.getElementById("message-input");
+                const sendButton = document.getElementById("send-button");
+
+                if (messageInput && sendButton) {
+                    sendButton.addEventListener("click", () => {
+                        app.sendMessage(messageInput.value);
+                    });
+
+                    messageInput.addEventListener("keypress", (e) => {
+                        if (e.key === "Enter") {
+                            app.sendMessage(messageInput.value);
+                        }
+                    });
+                }
+
+                // Enable input when customer is selected
+                const originalSelectCustomer = app.selectCustomer.bind(app);
+                app.selectCustomer = async (customer) => {
+                    await originalSelectCustomer(customer);
+                    messageInput.disabled = false;
+                    sendButton.disabled = false;
+                    messageInput.focus();
+                };
+
+                // Make app available globally
+                window.messagingApp = app;
+            });
+        </script>
+    </body>
+</html>

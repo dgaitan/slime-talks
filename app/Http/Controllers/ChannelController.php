@@ -209,4 +209,67 @@ class ChannelController extends Controller
             'total_count' => $result['total_count'],
         ]);
     }
+
+    /**
+     * Get channels for a customer by email, grouped by recipient.
+     *
+     * Retrieves all channels where the specified customer participates,
+     * grouped by the other participants (recipients). This is useful for
+     * customer-centric messaging interfaces where you want to show
+     * conversations grouped by customer pairs.
+     *
+     * @param Request $request HTTP request containing email parameter
+     * @return JsonResponse JSON response with grouped channels
+     *
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException When customer not found
+     * @throws \Illuminate\Auth\AuthenticationException When client is not authenticated
+     *
+     * @example
+     * GET /api/v1/channels/by-email?email=john@example.com
+     *
+     * Response (200):
+     * {
+     *     "object": "list",
+     *     "data": {
+     *         "conversations": [
+     *             {
+     *                 "recipient": {
+     *                     "object": "customer",
+     *                     "id": "cus_1234567890",
+     *                     "name": "Jane Smith",
+     *                     "email": "jane@example.com"
+     *                 },
+     *                 "channels": [...],
+     *                 "latest_message_at": 1640995200
+     *             }
+     *         ]
+     *     },
+     *     "total_count": 2
+     * }
+     */
+    public function getChannelsByEmail(Request $request): JsonResponse
+    {
+        // Get email from query parameter and convert to lowercase
+        $email = $request->get('email');
+        
+        if (!$email) {
+            return response()->json([
+                'error' => 'The email parameter is required.',
+            ], 422);
+        }
+        
+        // Convert email to lowercase for consistent querying
+        $email = strtolower(trim($email));
+        
+        $result = $this->channelService->getChannelsByEmail(
+            auth('sanctum')->user(), // Client from middleware
+            $email
+        );
+
+        return response()->json([
+            'object' => 'list',
+            'data' => $result['data'],
+            'total_count' => $result['total_count'],
+        ]);
+    }
 }
