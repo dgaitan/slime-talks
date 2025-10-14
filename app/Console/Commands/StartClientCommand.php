@@ -10,41 +10,35 @@ class StartClientCommand extends Command
 {
     /**
      * The name and signature of the console command.
+     * 
+     * Example: php artisan slime-chat:start-client "My App" "myapp.com"
      *
      * @var string
      */
-    protected $signature = 'slime-chat:start-client';
+    protected $signature = 'slime-chat:start-client 
+                            {name : The client name}
+                            {domain : The full domain where requests will be received (e.g., example.com)}
+                            {--public-key= : Custom public key (optional, will generate if not provided)}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Start a new client for Slime Chat with interactive setup';
+    protected $description = 'Start a new client for Slime Chat with provided parameters';
 
     /**
      * Execute the console command.
      */
-    public function handle()
+    public function handle(): int
     {
         $this->info('🚀 Starting Slime Chat Client Setup...');
         $this->newLine();
 
-        // Prompt for client name
-        $clientName = $this->ask('What is the client name?');
-        
-        if (empty($clientName)) {
-            $this->error('Client name is required!');
-            return 1;
-        }
-
-        // Prompt for domain
-        $domain = $this->ask('What is the full domain where requests will be received? (e.g., example.com)');
-        
-        if (empty($domain)) {
-            $this->error('Domain is required!');
-            return 1;
-        }
+        // Get parameters from command arguments
+        $clientName = $this->argument('name');
+        $domain = $this->argument('domain');
+        $customPublicKey = $this->option('public-key');
 
         // Validate domain format
         if (!filter_var('http://' . $domain, FILTER_VALIDATE_URL)) {
@@ -52,8 +46,8 @@ class StartClientCommand extends Command
             return 1;
         }
 
-        // Generate public key
-        $publicKey = 'pk_' . Str::random(32);
+        // Use custom public key if provided, otherwise generate one
+        $publicKey = $customPublicKey ?: 'pk_' . Str::random(32);
         
         // Generate API token
         $client = Client::create([
