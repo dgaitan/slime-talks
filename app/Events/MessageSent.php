@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Events;
 
+use App\Http\Resources\MessageResource;
 use App\Models\Message;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
@@ -44,7 +45,7 @@ class MessageSent implements ShouldBroadcast
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel("channel.{$this->message->channel->uuid}"),
+            "channel.{$this->message->channel->uuid}",
         ];
     }
 
@@ -56,22 +57,7 @@ class MessageSent implements ShouldBroadcast
     public function broadcastWith(): array
     {
         return [
-            'message' => [
-                'id' => $this->message->uuid,
-                'type' => $this->message->type,
-                'content' => $this->message->content,
-                'metadata' => $this->message->metadata,
-                'sender' => [
-                    'id' => $this->message->sender->uuid,
-                    'name' => $this->message->sender->name,
-                ],
-                'channel' => [
-                    'id' => $this->message->channel->uuid,
-                    'name' => $this->message->channel->name,
-                    'type' => $this->message->channel->type,
-                ],
-                'created_at' => $this->message->created_at->toISOString(),
-            ],
+            'message' => new MessageResource($this->message),
         ];
     }
 
